@@ -1489,11 +1489,13 @@ function exportGenSchedule(){
 // 내려받은 뒤 저장소의 schedule-data.json으로 올려두면 공유 링크가 최신 시간표를 보여준다.
 function buildShareData(){
   const subjects = {};
-  GENSTATE.subjects.forEach(s=>{ subjects[s.id] = { subject:s.subject, block:s.block, teacher:s.teacher, gradeLabel:s.gradeLabel, grades:[...s.grades], count:s.count }; });
+  GENSTATE.subjects.forEach(s=>{ subjects[s.id] = { subject:s.subject, block:s.block, teacher:s.teacher, gradeLabel:s.gradeLabel, grades:[...s.grades], count:s.count, students:[...s.students] }; });
+  const students = {};
+  Object.values(GENSTATE.students).forEach(st=>{ students[st.id] = { name:st.name, grade:st.grade }; });
   const slots = {};
   GENSTATE.days.forEach(day=> PERIODS.forEach(p=>{
     const key = `${day}_${p.no}`;
-    const rooms = (GENSTATE.roomAssign[key]||[]).map(r=>({ name:r.name, cap:r.cap, items:(r.items||[]).map(it=>({subjId:it.subjId, count:it.count})) }));
+    const rooms = (GENSTATE.roomAssign[key]||[]).map(r=>({ name:r.name, cap:r.cap, items:(r.items||[]).map(it=>({subjId:it.subjId, count:it.count, students:it.students||[]})) }));
     if(rooms.length) slots[key] = rooms;
   }));
   return {
@@ -1502,7 +1504,7 @@ function buildShareData(){
     dayLabels: Object.fromEntries(GENSTATE.days.map(d=>[d, dayLabelFromDate(d)])),
     periods: PERIODS,
     rooms: ROOMS,
-    subjects, slots,
+    subjects, students, slots,
   };
 }
 function exportGenShareData(){

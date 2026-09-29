@@ -52,6 +52,15 @@ table.grid tbody tr:last-child th:first-child{border-bottom-left-radius:13px;}
 .pill b{font-weight:700;display:block;margin-bottom:1px;color:var(--ink);font-size:.79rem;}
 .pill small{color:var(--sub);display:block;font-family:var(--font-mono);font-size:.66rem;line-height:1.5;}
 .emptystate{padding:60px 20px;text-align:center;color:var(--sub);font-size:.9rem;}
+.pill{cursor:pointer;}
+.modalbg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px;}
+.modalbg[hidden]{display:none;}
+.modalbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto;}
+.modalhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;}
+.rosterlist{width:100%;border-collapse:collapse;font-size:.83rem;}
+.rosterlist th,.rosterlist td{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left;}
+.ghostbtn{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;font-size:.78rem;cursor:pointer;font-family:var(--font-body);}
+.ghostbtn:hover{border-color:var(--accent);color:var(--accent);}
 .meta{font-family:var(--font-mono);font-size:.72rem;color:var(--sub);margin-bottom:14px;}
 </style>
 </head>
@@ -63,6 +72,17 @@ table.grid tbody tr:last-child th:first-child{border-bottom-left-radius:13px;}
   </div>
   <div id="content"><div class="emptystate">시간표를 불러오는 중…</div></div>
 </div>
+
+<div id="rosterModalBg" class="modalbg" hidden>
+  <div class="modalbox">
+    <div class="modalhead">
+      <h3 id="rosterTitle" style="font-size:1rem;"></h3>
+      <button class="ghostbtn" id="rosterCloseBtn">닫기</button>
+    </div>
+    <div id="rosterBody"></div>
+  </div>
+</div>
+
 <script>
 let DATA = null;
 let gradeFilter = 'all';
@@ -141,7 +161,7 @@ function render(){
         html += items.map(it=>{
           const s = DATA.subjects[it.subjId];
           const name = s.block ? s.subject + '(' + s.block + ')' : s.subject;
-          return '<div class="pill"><b>' + name + '</b><small>' + s.gradeLabel + '학년 · ' + s.teacher + ' · ' + it.count + '명</small></div>';
+          return '<div class="pill" data-subj="' + it.subjId + '" data-room="' + room.name + '" data-slotkey="' + key + '"><b>' + name + '</b><small>' + s.gradeLabel + '학년 · ' + s.teacher + ' · ' + it.count + '명</small></div>';
         }).join('');
       }
       html += '</td>';
@@ -151,9 +171,28 @@ function render(){
   html += '</tbody></table></div>';
   el.innerHTML = html;
 
+  el.querySelectorAll('.pill[data-subj]').forEach(p=> p.onclick = ()=> openRoster(p.dataset.subj, p.dataset.room, p.dataset.slotkey));
   el.querySelectorAll('[data-g]').forEach(t=> t.onclick = ()=>{ gradeFilter = t.dataset.g; render(); });
   el.querySelectorAll('[data-day]').forEach(t=> t.onclick = ()=>{ currentDay = t.dataset.day; render(); });
 }
+
+function openRoster(subjId, roomName, slotKey){
+  const s = DATA.subjects[subjId]; if(!s) return;
+  const room = (DATA.slots[slotKey]||[]).find(r=>r.name===roomName);
+  const item = room ? (room.items||[]).find(it=>it.subjId===subjId) : null;
+  const idsToShow = (item && item.students && item.students.length) ? item.students : (s.students||[]);
+  const list = idsToShow.map(sid=>({id:sid, ...(DATA.students && DATA.students[sid] || {name:sid, grade:''})}))
+    .sort((a,b)=> (a.grade-b.grade) || String(a.name).localeCompare(String(b.name),'ko'));
+  document.getElementById('rosterTitle').textContent = s.subject + (s.block?'('+s.block+')':'') + ' · ' + s.teacher;
+  const roomLine = item ? ('<div class="small" style="margin-bottom:8px;">' + roomName + ' 배정 인원: <b>' + item.count + '명</b> (과목 전체 ' + s.count + '명 중)</div>') : ('<div class="small" style="margin-bottom:8px;">전체 수강생: <b>' + s.count + '명</b></div>');
+  document.getElementById('rosterBody').innerHTML = roomLine +
+    '<table class="rosterlist"><thead><tr><th>#</th><th>학년</th><th>이름</th></tr></thead><tbody>' +
+    list.map((st,i)=>'<tr><td>' + (i+1) + '</td><td>' + st.grade + '</td><td>' + st.name + '</td></tr>').join('') +
+    '</tbody></table>';
+  document.getElementById('rosterModalBg').hidden = false;
+}
+document.getElementById('rosterCloseBtn').onclick = ()=>{ document.getElementById('rosterModalBg').hidden = true; };
+document.getElementById('rosterModalBg').addEventListener('click', ev=>{ if(ev.target.id==='rosterModalBg') ev.currentTarget.hidden = true; });
 </script>
 </body>
 </html>
