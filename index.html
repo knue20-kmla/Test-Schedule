@@ -135,7 +135,8 @@ table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8p
     </div>
     <div class="rowgap" style="align-items:center;">
       <span class="tag" id="statusTag">파일 없음</span>
-      <button class="ghost" id="historyBtn" title="이전에 생성한 시간표 목록">🕘 이전 시간표 확인하기</button>
+      <button class="ghost" id="cloudSaveBtn" title="현재 작업을 클라우드에 저장(다른 컴퓨터에서도 불러올 수 있음)">☁ 저장하기</button>
+      <button class="ghost" id="historyBtn" title="이전에 생성한 시간표 목록">🕘 이전 작업 불러오기</button>
       <button class="ghost" id="settingsBtn" title="공유 링크 자동 업데이트 설정">⚙ 설정</button>
       <button class="ghost" id="resetBtn" title="처음부터 다시 시작">↺ 초기화</button>
     </div>
@@ -166,11 +167,21 @@ table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8p
   <div id="historyModalBg" class="modalbg" hidden>
     <div class="modalbox">
       <div class="modalhead">
-        <h3 style="font-size:1rem;">이전에 생성한 시간표</h3>
+        <h3 style="font-size:1rem;">이전 작업 불러오기</h3>
         <button class="ghost" id="historyCloseBtn">닫기</button>
       </div>
-      <div class="small" style="margin-bottom:10px;">이 브라우저에 저장된 목록입니다(다른 기기·브라우저에서는 보이지 않습니다). 최근 20개까지 보관됩니다.</div>
-      <div id="historyList"></div>
+      <div class="modetabs" style="margin-bottom:10px;">
+        <div class="modetab active" data-histtab="cloud">☁ 클라우드(모든 컴퓨터)</div>
+        <div class="modetab" data-histtab="local">🕘 이 브라우저(로컬)</div>
+      </div>
+      <div id="cloudHistPane">
+        <div class="small" style="margin-bottom:10px;">"☁ 저장하기"로 저장해둔 작업입니다. 다른 컴퓨터에서도 여기서 불러와 이어서 편집할 수 있습니다.</div>
+        <div id="cloudList"><div class="small">불러오는 중…</div></div>
+      </div>
+      <div id="localHistPane" style="display:none;">
+        <div class="small" style="margin-bottom:10px;">이 브라우저에만 저장된 읽기 전용 기록입니다(다른 기기·브라우저에서는 보이지 않습니다). 최근 20개까지 보관됩니다.</div>
+        <div id="historyList"></div>
+      </div>
     </div>
   </div>
 
@@ -1768,9 +1779,160 @@ function renderHistoryList(){
     };
   });
 }
-document.getElementById('historyBtn').onclick = ()=>{ renderHistoryList(); document.getElementById('historyModalBg').hidden = false; };
+document.getElementById('historyBtn').onclick = ()=>{ renderHistoryList(); renderCloudList(); document.getElementById('historyModalBg').hidden = false; };
 document.getElementById('historyCloseBtn').onclick = ()=>{ document.getElementById('historyModalBg').hidden = true; };
 document.getElementById('historyModalBg').addEventListener('click', ev=>{ if(ev.target.id==='historyModalBg') ev.currentTarget.hidden = true; });
+document.querySelectorAll('#historyModalBg [data-histtab]').forEach(t=>{
+  t.onclick = ()=>{
+    document.querySelectorAll('#historyModalBg [data-histtab]').forEach(x=>x.classList.toggle('active', x===t));
+    document.getElementById('cloudHistPane').style.display = t.dataset.histtab==='cloud' ? 'block' : 'none';
+    document.getElementById('localHistPane').style.display = t.dataset.histtab==='local' ? 'block' : 'none';
+  };
+});
+
+/* ================= 클라우드 저장(다른 컴퓨터에서도 이어서 편집 가능) =================
+   "이전 시간표 확인하기"(로컬 history)는 이 브라우저에만 보이는 읽기 전용 기록이라
+   다른 컴퓨터에서 작업을 이어갈 수 없었음. 아래는 이미 만들어둔 GitHub 저장소(Test-Schedule)에
+   편집 가능한 전체 상태(수동 배정 포함)를 saves/*.json 으로 올려두고, 어느 컴퓨터에서든
+   같은 토큰(또는 토큰 없이 목록 조회만)으로 불러와 이어서 작업할 수 있게 한다. */
+const GH_SAVES_DIR = 'saves';
+const GH_SAVES_INDEX = 'saves/index.json';
+const CLOUD_SAVE_MAX = 30;
+// GENSTATE 전체(수동 배정 포함)를 다시 불러와 이어서 편집할 수 있는 형태로 직렬화한다.
+// buildShareData()는 view.html 전용 "보여주기" 데이터라 이 용도로는 정보가 부족하다(Set들이 빠짐).
+function buildFullSaveData(){
+  if(!GENSTATE) return null;
+  return {
+    config: GENSTATE.config,
+    days: GENSTATE.days,
+    teachers: GENSTATE.teachers,
+    subjects: GENSTATE.subjects.map(s=>({ ...s, grades:[...s.grades], blocks:[...s.blocks], teachers:[...s.teachers], students:[...s.students] })),
+    students: Object.fromEntries(Object.entries(GENSTATE.students).map(([k,v])=>[k, { ...v, subjectIds:[...v.subjectIds] }])),
+    subjectSlot: GENSTATE.subjectSlot,
+    unplaced: [...GENSTATE.unplaced],
+    manualOverrides: GENSTATE.manualOverrides,
+    manualRoomOverrides: GENSTATE.manualRoomOverrides,
+  };
+}
+function restoreFullState(data){
+  const subjects = data.subjects.map(s=>({ ...s, grades:new Set(s.grades), blocks:new Set(s.blocks), teachers:new Set(s.teachers), students:new Set(s.students) }));
+  const subjectsMap = {}; subjects.forEach(s=>subjectsMap[s.id]=s);
+  const students = {};
+  Object.entries(data.students).forEach(([k,v])=>{ students[k] = { ...v, subjectIds:new Set(v.subjectIds) }; });
+  GENSTATE = {
+    config: data.config, days: data.days, subjects, subjectsMap, students, teachers: data.teachers,
+    subjectSlot: data.subjectSlot, unplaced: new Set(data.unplaced||[]),
+    subjectsBySlot:{}, roomAssign:{}, roomConflicts:[], proctorAssign:{},
+    manualOverrides: data.manualOverrides||{}, manualRoomOverrides: data.manualRoomOverrides||{},
+  };
+  genRecomputeDerived();
+  setMode('generate');
+  genCurrentDay = GENSTATE.days[0]; genGradeFilter = 'all';
+  document.getElementById('statusTag').textContent = `${GENSTATE.config.semester}학기 ${GENSTATE.config.examType}고사 · 과목 ${GENSTATE.subjects.length}개 (불러옴)`;
+  document.getElementById('genExportBtn').style.display = 'block';
+  document.getElementById('shareBox').style.display = 'block';
+  renderGenStat(); renderGenAll();
+}
+function ghHeaders(token){ const h = {'Accept':'application/vnd.github+json'}; if(token) h['Authorization'] = 'Bearer ' + token; return h; }
+function decodeGhContent(b64){ return new TextDecoder().decode(Uint8Array.from(atob(b64.replace(/\n/g,'')), c=>c.charCodeAt(0))); }
+async function ghGetJson(path, token){
+  const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${path}`, {headers: ghHeaders(token)});
+  if(res.status===404) return {sha:null, data:null};
+  if(!res.ok) throw new Error('조회 실패('+res.status+')');
+  const j = await res.json();
+  return {sha:j.sha, data: JSON.parse(decodeGhContent(j.content))};
+}
+async function ghPutJson(path, obj, sha, token, message){
+  const contentB64 = bytesToBase64(new TextEncoder().encode(JSON.stringify(obj)));
+  const body = { message, content: contentB64 };
+  if(sha) body.sha = sha;
+  const res = await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${path}`, {
+    method:'PUT', headers:{...ghHeaders(token), 'Content-Type':'application/json'}, body: JSON.stringify(body)
+  });
+  if(!res.ok){ const t = await res.text(); throw new Error('업로드 실패('+res.status+'): '+t.slice(0,200)); }
+  return (await res.json()).content.sha;
+}
+async function saveScheduleToCloud(){
+  if(!GENSTATE){ alert('먼저 시간표를 생성해주세요.'); return; }
+  const token = getGhToken();
+  if(!token){ openSettingsModal(); return; }
+  const btn = document.getElementById('cloudSaveBtn');
+  const origText = btn.textContent; btn.textContent = '저장 중…'; btn.disabled = true;
+  try{
+    const cfg = GENSTATE.config;
+    const label = `${cfg.semester}학기 ${cfg.examType}고사 · ${cfg.grades.join(',')}학년 · 과목 ${GENSTATE.subjects.length}개`;
+    const id = 'save_' + Date.now();
+    await ghPutJson(`${GH_SAVES_DIR}/${id}.json`, buildFullSaveData(), null, token, '작업 저장: ' + label);
+    const idxRes = await ghGetJson(GH_SAVES_INDEX, token);
+    const list = idxRes.data || [];
+    list.unshift({ id, label, savedAt: new Date().toISOString() });
+    await ghPutJson(GH_SAVES_INDEX, list.slice(0, CLOUD_SAVE_MAX), idxRes.sha, token, '저장 목록 갱신');
+    alert('클라우드에 저장되었습니다. 다른 컴퓨터에서 "🕘 이전 작업 불러오기 → ☁ 클라우드"에서 불러올 수 있습니다.');
+  }catch(e){
+    alert('저장 실패: ' + e.message + '\n(⚙ 설정에서 토큰과 권한을 확인해주세요)');
+  }finally{
+    btn.textContent = origText; btn.disabled = false;
+  }
+}
+async function renderCloudList(){
+  const el = document.getElementById('cloudList');
+  el.innerHTML = '<div class="small">불러오는 중…</div>';
+  try{
+    const {data} = await ghGetJson(GH_SAVES_INDEX, getGhToken());
+    const list = data || [];
+    if(!list.length){ el.innerHTML = '<div class="emptystate">아직 클라우드에 저장된 작업이 없습니다. "☁ 저장하기" 버튼으로 저장해보세요.</div>'; return; }
+    el.innerHTML = list.map(item=>{
+      const dt = new Date(item.savedAt).toLocaleString('ko-KR');
+      return `<div class="studentcard" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+        <div><div style="font-weight:700;font-size:.85rem;">${item.label}</div><div class="small">${dt}</div></div>
+        <div class="rowgap">
+          <button class="primary" data-cload="${item.id}">불러오기</button>
+          <button class="ghost" data-cdel="${item.id}">삭제</button>
+        </div>
+      </div>`;
+    }).join('');
+    el.querySelectorAll('[data-cload]').forEach(btn=>{
+      btn.onclick = async ()=>{
+        btn.textContent = '불러오는 중…'; btn.disabled = true;
+        try{
+          const {data} = await ghGetJson(`${GH_SAVES_DIR}/${btn.dataset.cload}.json`, getGhToken());
+          if(!data){ alert('저장된 데이터를 찾을 수 없습니다.'); return; }
+          restoreFullState(data);
+          document.getElementById('historyModalBg').hidden = true;
+        }catch(e){
+          alert('불러오기 실패: ' + e.message);
+        }finally{
+          btn.textContent = '불러오기'; btn.disabled = false;
+        }
+      };
+    });
+    el.querySelectorAll('[data-cdel]').forEach(btn=>{
+      btn.onclick = async ()=>{
+        const token = getGhToken();
+        if(!token){ openSettingsModal(); return; }
+        if(!confirm('클라우드에 저장된 이 작업을 삭제할까요?')) return;
+        try{
+          const fileRes = await ghGetJson(`${GH_SAVES_DIR}/${btn.dataset.cdel}.json`, token);
+          if(fileRes.sha){
+            await fetch(`https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_SAVES_DIR}/${btn.dataset.cdel}.json`, {
+              method:'DELETE', headers:{...ghHeaders(token), 'Content-Type':'application/json'},
+              body: JSON.stringify({ message:'저장 삭제', sha: fileRes.sha })
+            });
+          }
+          const idxRes = await ghGetJson(GH_SAVES_INDEX, token);
+          const list = (idxRes.data||[]).filter(x=>x.id!==btn.dataset.cdel);
+          await ghPutJson(GH_SAVES_INDEX, list, idxRes.sha, token, '저장 목록 갱신(삭제)');
+          renderCloudList();
+        }catch(e){
+          alert('삭제 실패: ' + e.message);
+        }
+      };
+    });
+  }catch(e){
+    el.innerHTML = `<div class="small" style="color:var(--bad);">목록을 불러오지 못했습니다: ${e.message}</div>`;
+  }
+}
+document.getElementById('cloudSaveBtn').onclick = saveScheduleToCloud;
 </script>
 </body>
 </html>
