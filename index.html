@@ -60,7 +60,7 @@ table.grid th,table.grid td{border-bottom:1.5px solid var(--line-strong);border-
 table.grid th:first-child,table.grid td:first-child{border-left:none;}
 table.grid tr:last-child th,table.grid tr:last-child td{border-bottom:none;}
 table.grid tr th:last-child,table.grid tr td:last-child{border-right:none;}
-table.grid thead th{background:var(--panel);font-weight:800;font-size:.7rem;text-align:center;color:var(--accent);letter-spacing:.02em;text-transform:uppercase;border-top:none;border-bottom:4px solid var(--accent);padding-bottom:8px;}
+table.grid thead th{background:color-mix(in srgb, var(--panel) 78%, var(--accent) 22%);font-weight:800;font-size:.7rem;text-align:center;color:var(--accent);letter-spacing:.02em;text-transform:uppercase;border-top:none;border-bottom:4px solid var(--accent);padding-bottom:8px;}
 table.grid thead th:first-child{border-top-left-radius:13px;text-transform:none;font-family:var(--font-display);letter-spacing:0;}
 table.grid thead th:last-child{border-top-right-radius:13px;}
 table.grid .pno{display:block;font-family:var(--font-display);font-weight:800;font-size:.8rem;color:var(--accent);}
@@ -288,6 +288,10 @@ table.teach thead th,.rosterlist thead th{border-bottom:2px solid var(--accent);
     </div>
 
     <div class="panel" style="min-height:420px;">
+      <div id="versionSwitchBanner" style="display:none;margin-bottom:12px;padding:9px 12px;border-radius:10px;background:color-mix(in srgb, var(--panel) 85%, var(--accent) 15%);border:1px solid var(--accent);display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span class="small" id="versionSwitchBannerText" style="color:var(--ink);"></span>
+        <button class="primary" id="versionSwitchBannerBtn" style="width:auto;margin:0;padding:6px 14px;">🔀 다른 버전 비교하기</button>
+      </div>
       <div class="tabs">
         <div class="tab active" data-genpane="full">전체 시간표</div>
         <div class="tab" data-genpane="student">학생별 시간표</div>
@@ -1363,6 +1367,13 @@ function selectGenVariant(idx){
   document.getElementById('genExportBtn').style.display = 'block';
   document.getElementById('shareBox').style.display = 'block';
   document.getElementById('versionSwitchBtn').style.display = GEN_VARIANTS.length>1 ? 'block' : 'none';
+  const banner = document.getElementById('versionSwitchBanner');
+  if(GEN_VARIANTS.length>1){
+    document.getElementById('versionSwitchBannerText').textContent = `지금은 버전 ${idx+1}/${GEN_VARIANTS.length}을 쓰고 있습니다. 마음에 안 들면 나머지 버전으로 언제든 바꿀 수 있어요.`;
+    banner.style.display = 'flex';
+  } else {
+    banner.style.display = 'none';
+  }
   renderGenStat(); renderGenAll();
   saveScheduleToHistory();
   if(v.unplaced.size){
@@ -1926,11 +1937,13 @@ function renderHistoryList(){
 }
 document.getElementById('versionPickModalBg').addEventListener('click', ev=>{ if(ev.target.id==='versionPickModalBg') ev.currentTarget.hidden = true; });
 document.getElementById('versionPickRegenBtn').onclick = ()=> runGenPipeline();
-document.getElementById('versionSwitchBtn').onclick = ()=>{
+function openVersionSwitchModal(){
   if(!GEN_VARIANTS.length) return;
   renderVersionPickModal();
   document.getElementById('versionPickModalBg').hidden = false;
-};
+}
+document.getElementById('versionSwitchBtn').onclick = openVersionSwitchModal;
+document.getElementById('versionSwitchBannerBtn').onclick = openVersionSwitchModal;
 document.getElementById('historyBtn').onclick = ()=>{ renderHistoryList(); renderCloudList(); document.getElementById('historyModalBg').hidden = false; };
 document.getElementById('historyCloseBtn').onclick = ()=>{ document.getElementById('historyModalBg').hidden = true; };
 document.getElementById('historyModalBg').addEventListener('click', ev=>{ if(ev.target.id==='historyModalBg') ev.currentTarget.hidden = true; });
@@ -1983,6 +1996,7 @@ function restoreFullState(data){
   // 불러온 저장본은 그때 만들었던 다른 버전들이 남아있지 않으므로 "다른 버전으로 바꾸기"는 숨긴다.
   GEN_VARIANTS = []; GEN_VARIANT_INPUT = null; GEN_SELECTED_IDX = null;
   document.getElementById('versionSwitchBtn').style.display = 'none';
+  document.getElementById('versionSwitchBanner').style.display = 'none';
   document.getElementById('statusTag').textContent = `${GENSTATE.config.semester}학기 ${GENSTATE.config.examType}고사 · 과목 ${GENSTATE.subjects.length}개 (불러옴)`;
   document.getElementById('genExportBtn').style.display = 'block';
   document.getElementById('shareBox').style.display = 'block';
