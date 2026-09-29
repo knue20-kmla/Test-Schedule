@@ -136,7 +136,30 @@ table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8p
     <div class="rowgap" style="align-items:center;">
       <span class="tag" id="statusTag">파일 없음</span>
       <button class="ghost" id="historyBtn" title="이전에 생성한 시간표 목록">🕘 이전 시간표 확인하기</button>
+      <button class="ghost" id="settingsBtn" title="공유 링크 자동 업데이트 설정">⚙ 설정</button>
       <button class="ghost" id="resetBtn" title="처음부터 다시 시작">↺ 초기화</button>
+    </div>
+  </div>
+
+  <div id="settingsModalBg" class="modalbg" hidden>
+    <div class="modalbox">
+      <div class="modalhead">
+        <h3 style="font-size:1rem;">공유 링크 자동 업데이트 설정</h3>
+        <button class="ghost" id="settingsCloseBtn">닫기</button>
+      </div>
+      <div class="small" style="margin-bottom:8px;">시간표를 생성할 때마다 파일을 보내지 않아도, 아래 토큰을 한 번 저장해두면 "🚀 이 주소로 바로 업데이트" 버튼 하나로 <b>https://knue20-kmla.github.io/Test-Schedule/view.html</b> 이 자동으로 최신 시간표를 가리키게 됩니다.</div>
+      <div class="small" style="margin-bottom:8px;">
+        1. GitHub → Settings → Developer settings → <b>Fine-grained tokens</b> → Generate new token<br>
+        2. Repository access: <b>Only select repositories</b> → <code>Test-Schedule</code><br>
+        3. Permissions: <b>Contents → Read and write</b><br>
+        4. 발급된 토큰을 아래에 붙여넣고 저장 (이 브라우저에만 저장되고 GitHub API로만 직접 전송됩니다)
+      </div>
+      <div id="ghTokenStatus" class="small" style="margin-bottom:8px;"></div>
+      <input type="password" id="ghTokenInput" placeholder="github_pat_..." style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-family:var(--font-mono);font-size:.72rem;margin-bottom:6px;">
+      <div class="rowgap">
+        <button class="primary" id="ghTokenSaveBtn" style="flex:1;">토큰 저장</button>
+        <button class="ghost" id="ghTokenClearBtn">저장된 토큰 지우기</button>
+      </div>
     </div>
   </div>
 
@@ -220,12 +243,7 @@ table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8p
           <button class="primary" id="ghPublishBtn" style="width:100%;">🚀 이 주소로 바로 업데이트</button>
           <div class="small" id="ghPublishState" style="margin-top:4px;"></div>
         </div>
-        <div id="ghSetupBox" style="display:none;margin-top:8px;padding:9px;background:var(--bg);border:1px solid var(--line);border-radius:8px;">
-          <div class="small" style="margin-bottom:6px;"><b>처음 한 번만 설정</b>하면 그 다음부터는 매번 파일을 보내지 않아도 이 버튼 하나로 짧은 주소가 자동 업데이트됩니다. GitHub에서 <code>Test-Schedule</code> 저장소에만 쓰기 권한을 준 개인 토큰(fine-grained PAT, Contents: Read and write)을 발급해서 아래에 붙여넣어주세요. 이 브라우저에만 저장되고 어디로도 전송되지 않습니다(직접 GitHub API로만 전송됩니다).</div>
-          <input type="password" id="ghTokenInput" placeholder="github_pat_..." style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font-family:var(--font-mono);font-size:.72rem;margin-bottom:6px;">
-          <button class="ghost" id="ghTokenSaveBtn" style="width:100%;">토큰 저장</button>
-        </div>
-        <button class="ghost" id="ghSetupToggleBtn" style="width:100%;margin-top:6px;font-size:.72rem;">⚙ 자동 업데이트 설정</button>
+        <button class="ghost" id="ghSetupToggleBtn" style="width:100%;margin-top:6px;font-size:.72rem;">⚙ 자동 업데이트 설정 (처음 한 번만)</button>
         <div class="small" style="margin:10px 0 6px;">토큰 없이 바로 보내고 싶을 때 — 파일을 받아 Claude에게 보내주세요.</div>
         <button class="ghost" id="genShareBtn" style="width:100%;">📄 공유 파일 내보내기 (schedule-data.json)</button>
         <div class="small" style="margin:10px 0 6px;">즉석 링크 — 기다리지 않고 바로 쓸 수 있지만, 데이터가 링크 안에 들어있어 다소 깁니다.</div>
@@ -1506,7 +1524,7 @@ function setGhToken(t){ try{ localStorage.setItem(GH_TOKEN_KEY, t); }catch(e){} 
 function bytesToBase64(bytes){ let bin=''; bytes.forEach(b=>bin+=String.fromCharCode(b)); return btoa(bin); }
 async function publishScheduleToRepo(){
   const token = getGhToken();
-  if(!token){ document.getElementById('ghSetupBox').style.display='block'; return; }
+  if(!token){ openSettingsModal(); return; }
   if(!GENSTATE) return;
   const stateEl = document.getElementById('ghPublishState');
   stateEl.textContent = '업로드 중…';
@@ -1626,17 +1644,30 @@ document.getElementById('genExportBtn').onclick = exportGenSchedule;
 document.getElementById('genShareBtn').onclick = exportGenShareData;
 document.getElementById('genShareLinkBtn').onclick = makeGenShareLink;
 document.getElementById('ghPublishBtn').onclick = publishScheduleToRepo;
-document.getElementById('ghSetupToggleBtn').onclick = ()=>{
-  const box = document.getElementById('ghSetupBox');
-  box.style.display = box.style.display==='none' ? 'block' : 'none';
-};
+document.getElementById('ghSetupToggleBtn').onclick = openSettingsModal;
+document.getElementById('settingsBtn').onclick = openSettingsModal;
+function refreshGhTokenStatus(){
+  const has = !!getGhToken();
+  document.getElementById('ghTokenStatus').innerHTML = has
+    ? '<span style="color:var(--good);">✓ 토큰이 저장되어 있습니다.</span>'
+    : '<span style="color:var(--sub);">아직 저장된 토큰이 없습니다.</span>';
+}
+function openSettingsModal(){ refreshGhTokenStatus(); document.getElementById('settingsModalBg').hidden = false; }
+document.getElementById('settingsCloseBtn').onclick = ()=>{ document.getElementById('settingsModalBg').hidden = true; };
+document.getElementById('settingsModalBg').addEventListener('click', ev=>{ if(ev.target.id==='settingsModalBg') ev.currentTarget.hidden = true; });
 document.getElementById('ghTokenSaveBtn').onclick = ()=>{
   const v = document.getElementById('ghTokenInput').value.trim();
   if(!v){ alert('토큰을 입력해주세요.'); return; }
   setGhToken(v);
   document.getElementById('ghTokenInput').value = '';
-  document.getElementById('ghSetupBox').style.display = 'none';
-  document.getElementById('ghPublishState').textContent = '토큰이 저장되었습니다. 이제 "이 주소로 바로 업데이트" 버튼을 누르면 됩니다.';
+  refreshGhTokenStatus();
+  const stateEl = document.getElementById('ghPublishState');
+  if(stateEl) stateEl.textContent = '토큰이 저장되었습니다. 이제 "이 주소로 바로 업데이트" 버튼을 누르면 됩니다.';
+};
+document.getElementById('ghTokenClearBtn').onclick = ()=>{
+  if(!confirm('저장된 토큰을 지울까요?')) return;
+  setGhToken('');
+  refreshGhTokenStatus();
 };
 
 // 최적화 모드 업로더도 원자료 파일이 들어오면 생성 모드로 자동 전환
