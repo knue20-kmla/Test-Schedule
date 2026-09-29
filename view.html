@@ -53,13 +53,26 @@ let DATA = null;
 let gradeFilter = 'all';
 let currentDay = null;
 
-fetch('schedule-data.json?_=' + Date.now())
-  .then(r=>{ if(!r.ok) throw new Error('not found'); return r.json(); })
-  .then(d=>{ DATA = d; currentDay = d.days[0]; render(); })
-  .catch(()=>{
-    document.getElementById('content').innerHTML =
-      '<div class="emptystate">아직 공개된 시간표가 없습니다.<br><span class="small">schedule-data.json이 이 페이지와 같은 위치에 있어야 합니다.</span></div>';
-  });
+// 링크 자체(#d=...)에 시간표 데이터가 담겨 있으면 그걸 바로 쓰고, 없으면 같은 위치의 schedule-data.json을 불러온다.
+const hashMatch = location.hash.match(/^#d=(.+)$/);
+if(hashMatch){
+  try{
+    const json = decodeURIComponent(escape(atob(hashMatch[1])));
+    DATA = JSON.parse(json);
+    currentDay = DATA.days[0];
+    render();
+  }catch(e){
+    document.getElementById('content').innerHTML = '<div class="emptystate">공유 링크를 읽을 수 없습니다. 링크가 잘렸을 수 있어요.</div>';
+  }
+} else {
+  fetch('schedule-data.json?_=' + Date.now())
+    .then(r=>{ if(!r.ok) throw new Error('not found'); return r.json(); })
+    .then(d=>{ DATA = d; currentDay = d.days[0]; render(); })
+    .catch(()=>{
+      document.getElementById('content').innerHTML =
+        '<div class="emptystate">아직 공개된 시간표가 없습니다.<br><span class="small">시간표 생성 화면에서 "학생 공유 링크 만들기"를 눌러 링크를 받아주세요.</span></div>';
+    });
+}
 
 function render(){
   const el = document.getElementById('content');

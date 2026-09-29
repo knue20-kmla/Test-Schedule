@@ -185,8 +185,13 @@ table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8p
       </div>
       <button class="primary" id="genRunBtn" disabled>시간표 생성</button>
       <button class="ghost" id="genExportBtn" style="width:100%;margin-top:8px;display:none;">엑셀로 내보내기</button>
-      <button class="ghost" id="genShareBtn" style="width:100%;margin-top:6px;display:none;">공유용 데이터 내보내기 (schedule-data.json)</button>
-      <div class="small" id="shareHint" style="display:none;margin-top:4px;">내려받은 파일을 저장소의 <code>schedule-data.json</code>으로 올려두면 <b>공유 링크</b>가 최신 시간표를 보여줍니다.</div>
+      <button class="primary" id="genShareLinkBtn" style="display:none;">🔗 학생 공유 링크 만들기</button>
+      <div id="shareLinkBox" style="display:none;margin-top:8px;">
+        <input type="text" id="shareLinkInput" readonly style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-family:var(--font-mono);font-size:.72rem;">
+        <div class="small" id="shareLinkCopyState" style="margin-top:4px;"></div>
+      </div>
+      <button class="ghost" id="genShareBtn" style="width:100%;margin-top:6px;display:none;">공유용 데이터 파일 내보내기 (schedule-data.json)</button>
+      <div class="small" id="shareHint" style="display:none;margin-top:4px;">위 "공유 링크 만들기" 버튼 하나로 충분합니다. 이 파일 내보내기는 저장소에 고정 링크(schedule-data.json)로 올려두고 싶을 때만 쓰세요.</div>
       <div class="stat" id="genStatBox" style="margin-top:12px;"></div>
     </div>
 
@@ -1139,6 +1144,7 @@ function runGenPipeline(){
     subjectSlot, unplaced, subjectsBySlot, roomAssign, roomConflicts, proctorAssign, manualOverrides:{}, manualRoomOverrides:{} };
   document.getElementById('statusTag').textContent = `${semester}학기 ${examType}고사 · 과목 ${grouped.length}개`;
   document.getElementById('genExportBtn').style.display = 'block';
+  document.getElementById('genShareLinkBtn').style.display = 'block';
   document.getElementById('genShareBtn').style.display = 'block';
   document.getElementById('shareHint').style.display = 'block';
   renderGenStat(); renderGenAll();
@@ -1421,8 +1427,7 @@ function exportGenSchedule(){
 }
 // 학생·교사에게 공유할 때 쓰는 읽기 전용 화면(view.html)이 읽어가는 데이터 파일.
 // 내려받은 뒤 저장소의 schedule-data.json으로 올려두면 공유 링크가 최신 시간표를 보여준다.
-function exportGenShareData(){
-  if(!GENSTATE) return;
+function buildShareData(){
   const subjects = {};
   GENSTATE.subjects.forEach(s=>{ subjects[s.id] = { subject:s.subject, block:s.block, teacher:s.teacher, gradeLabel:s.gradeLabel, grades:[...s.grades], count:s.count }; });
   const slots = {};
@@ -1431,7 +1436,7 @@ function exportGenShareData(){
     const rooms = (GENSTATE.roomAssign[key]||[]).map(r=>({ name:r.name, cap:r.cap, items:(r.items||[]).map(it=>({subjId:it.subjId, count:it.count})) }));
     if(rooms.length) slots[key] = rooms;
   }));
-  const data = {
+  return {
     generatedAt: new Date().toISOString(),
     days: GENSTATE.days,
     dayLabels: Object.fromEntries(GENSTATE.days.map(d=>[d, dayLabelFromDate(d)])),
@@ -1439,11 +1444,34 @@ function exportGenShareData(){
     rooms: ROOMS,
     subjects, slots,
   };
+}
+function exportGenShareData(){
+  if(!GENSTATE) return;
+  const data = buildShareData();
   const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url; a.download = 'schedule-data.json'; a.click();
   URL.revokeObjectURL(url);
+}
+// 파일을 따로 올리지 않아도, 링크 자체에 시간표 데이터를 담아 바로 열리는 공유 링크를 만든다.
+function makeGenShareLink(){
+  if(!GENSTATE) return;
+  const data = buildShareData();
+  const json = JSON.stringify(data);
+  const b64 = btoa(unescape(encodeURIComponent(json)));
+  const base = location.href.replace(/[^/]*$/, ''); // 현재 페이지가 있는 폴더 경로
+  const url = base + 'view.html#d=' + b64;
+  const box = document.getElementById('shareLinkBox');
+  const input = document.getElementById('shareLinkInput');
+  input.value = url;
+  box.style.display = 'block';
+  input.focus(); input.select();
+  navigator.clipboard.writeText(url).then(()=>{
+    document.getElementById('shareLinkCopyState').textContent = '링크가 복사되었습니다. 학생들에게 그대로 보내주세요.';
+  }).catch(()=>{
+    document.getElementById('shareLinkCopyState').textContent = '위 링크를 직접 선택해서 복사해주세요.';
+  });
 }
 
 /* ================= 모드 전환 + 파일 자동 감지 ================= */
@@ -1507,6 +1535,7 @@ document.getElementById('resetBtn').onclick = ()=>{
 };
 document.getElementById('genExportBtn').onclick = exportGenSchedule;
 document.getElementById('genShareBtn').onclick = exportGenShareData;
+document.getElementById('genShareLinkBtn').onclick = makeGenShareLink;
 
 // 최적화 모드 업로더도 원자료 파일이 들어오면 생성 모드로 자동 전환
 fileBtn.addEventListener('drop', e=>{}, true); // no-op placeholder to keep listener order stable
