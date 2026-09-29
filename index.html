@@ -214,9 +214,19 @@ table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8p
       <button class="primary" id="genRunBtn" disabled>시간표 생성</button>
       <button class="ghost" id="genExportBtn" style="width:100%;margin-top:8px;display:none;">엑셀로 내보내기</button>
       <div id="shareBox" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">
-        <label>학생 공유</label>
-        <div class="small" style="margin-bottom:6px;"><b>짧은 고정 주소</b> (추천) — 아래 버튼으로 파일을 받아 저(Claude)에게 보내주시면 이 주소가 최신 시간표로 업데이트됩니다. 한 번 올려두면 계속 같은 주소를 쓸 수 있어요.</div>
+        <label>학생 공유 — 짧은 고정 주소</label>
         <div class="small" style="font-family:var(--font-mono);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;margin-bottom:6px;word-break:break-all;">https://knue20-kmla.github.io/Test-Schedule/view.html</div>
+        <div id="ghAutoBox">
+          <button class="primary" id="ghPublishBtn" style="width:100%;">🚀 이 주소로 바로 업데이트</button>
+          <div class="small" id="ghPublishState" style="margin-top:4px;"></div>
+        </div>
+        <div id="ghSetupBox" style="display:none;margin-top:8px;padding:9px;background:var(--bg);border:1px solid var(--line);border-radius:8px;">
+          <div class="small" style="margin-bottom:6px;"><b>처음 한 번만 설정</b>하면 그 다음부터는 매번 파일을 보내지 않아도 이 버튼 하나로 짧은 주소가 자동 업데이트됩니다. GitHub에서 <code>Test-Schedule</code> 저장소에만 쓰기 권한을 준 개인 토큰(fine-grained PAT, Contents: Read and write)을 발급해서 아래에 붙여넣어주세요. 이 브라우저에만 저장되고 어디로도 전송되지 않습니다(직접 GitHub API로만 전송됩니다).</div>
+          <input type="password" id="ghTokenInput" placeholder="github_pat_..." style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);font-family:var(--font-mono);font-size:.72rem;margin-bottom:6px;">
+          <button class="ghost" id="ghTokenSaveBtn" style="width:100%;">토큰 저장</button>
+        </div>
+        <button class="ghost" id="ghSetupToggleBtn" style="width:100%;margin-top:6px;font-size:.72rem;">⚙ 자동 업데이트 설정</button>
+        <div class="small" style="margin:10px 0 6px;">토큰 없이 바로 보내고 싶을 때 — 파일을 받아 Claude에게 보내주세요.</div>
         <button class="ghost" id="genShareBtn" style="width:100%;">📄 공유 파일 내보내기 (schedule-data.json)</button>
         <div class="small" style="margin:10px 0 6px;">즉석 링크 — 기다리지 않고 바로 쓸 수 있지만, 데이터가 링크 안에 들어있어 다소 깁니다.</div>
         <button class="ghost" id="genShareLinkBtn" style="width:100%;">🔗 즉석 링크 만들기</button>
@@ -1486,6 +1496,38 @@ function exportGenShareData(){
   a.href = url; a.download = 'schedule-data.json'; a.click();
   URL.revokeObjectURL(url);
 }
+/* ================= GitHub 저장소에 직접 업데이트 (짧은 고정 주소 자동화) =================
+   사용자가 이 저장소 전용 fine-grained PAT를 브라우저에만 저장해두면, 매번 파일을 보내지
+   않아도 "schedule-data.json"을 GitHub API로 직접 갱신해 짧은 주소가 항상 최신을 가리키게 한다. */
+const GH_OWNER = 'knue20-kmla', GH_REPO = 'Test-Schedule', GH_PATH = 'schedule-data.json';
+const GH_TOKEN_KEY = 'examSchedulerGhToken';
+function getGhToken(){ try{ return localStorage.getItem(GH_TOKEN_KEY) || ''; }catch(e){ return ''; } }
+function setGhToken(t){ try{ localStorage.setItem(GH_TOKEN_KEY, t); }catch(e){} }
+function bytesToBase64(bytes){ let bin=''; bytes.forEach(b=>bin+=String.fromCharCode(b)); return btoa(bin); }
+async function publishScheduleToRepo(){
+  const token = getGhToken();
+  if(!token){ document.getElementById('ghSetupBox').style.display='block'; return; }
+  if(!GENSTATE) return;
+  const stateEl = document.getElementById('ghPublishState');
+  stateEl.textContent = '업로드 중…';
+  try{
+    const api = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_PATH}`;
+    const headers = { 'Authorization': 'Bearer ' + token, 'Accept': 'application/vnd.github+json' };
+    let sha = null;
+    const getRes = await fetch(api, {headers});
+    if(getRes.status===200){ sha = (await getRes.json()).sha; }
+    else if(getRes.status!==404){ throw new Error('조회 실패('+getRes.status+')'); }
+    const json = JSON.stringify(buildShareData());
+    const contentB64 = bytesToBase64(new TextEncoder().encode(json));
+    const putBody = { message: '시간표 데이터 업데이트 ('+new Date().toISOString()+')', content: contentB64 };
+    if(sha) putBody.sha = sha;
+    const putRes = await fetch(api, { method:'PUT', headers:{...headers, 'Content-Type':'application/json'}, body: JSON.stringify(putBody) });
+    if(!putRes.ok){ const t = await putRes.text(); throw new Error('업로드 실패('+putRes.status+'): '+t.slice(0,200)); }
+    stateEl.textContent = '✓ 업데이트 완료! https://knue20-kmla.github.io/Test-Schedule/view.html 에서 몇 분 내로 반영됩니다.';
+  }catch(e){
+    stateEl.textContent = '실패: ' + e.message + ' (토큰 권한을 확인해주세요)';
+  }
+}
 // 파일을 따로 올리지 않아도, 링크 자체에 시간표 데이터를 담아 바로 열리는 공유 링크를 만든다.
 function toBase64Url(bytes){
   let bin=''; bytes.forEach(b=> bin+=String.fromCharCode(b));
@@ -1583,6 +1625,19 @@ document.getElementById('resetBtn').onclick = ()=>{
 document.getElementById('genExportBtn').onclick = exportGenSchedule;
 document.getElementById('genShareBtn').onclick = exportGenShareData;
 document.getElementById('genShareLinkBtn').onclick = makeGenShareLink;
+document.getElementById('ghPublishBtn').onclick = publishScheduleToRepo;
+document.getElementById('ghSetupToggleBtn').onclick = ()=>{
+  const box = document.getElementById('ghSetupBox');
+  box.style.display = box.style.display==='none' ? 'block' : 'none';
+};
+document.getElementById('ghTokenSaveBtn').onclick = ()=>{
+  const v = document.getElementById('ghTokenInput').value.trim();
+  if(!v){ alert('토큰을 입력해주세요.'); return; }
+  setGhToken(v);
+  document.getElementById('ghTokenInput').value = '';
+  document.getElementById('ghSetupBox').style.display = 'none';
+  document.getElementById('ghPublishState').textContent = '토큰이 저장되었습니다. 이제 "이 주소로 바로 업데이트" 버튼을 누르면 됩니다.';
+};
 
 // 최적화 모드 업로더도 원자료 파일이 들어오면 생성 모드로 자동 전환
 fileBtn.addEventListener('drop', e=>{}, true); // no-op placeholder to keep listener order stable
