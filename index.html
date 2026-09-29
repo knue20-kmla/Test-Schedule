@@ -25,9 +25,11 @@ body{background:linear-gradient(160deg, var(--bg-grad-a), var(--bg-grad-b) 65%, 
 h1,h2,h3{font-family:var(--font-display);font-weight:700;margin:0;}
 .wrap{max-width:1280px;margin:0 auto;padding:20px 0 60px;}
 .top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--line);}
-.brand{display:flex;align-items:center;gap:12px;}
-.brand .logo{height:44px;width:44px;object-fit:contain;border-radius:8px;}
-.top h1{font-size:1.4rem;letter-spacing:-0.01em;}
+.brand{display:flex;align-items:center;gap:16px;}
+.brand .logo{height:60px;width:60px;object-fit:contain;border-radius:12px;box-shadow:0 3px 10px rgba(10,30,60,.18);}
+.brand-text{display:flex;flex-direction:column;gap:3px;}
+.brand-text .eyebrow{font-family:var(--font-mono);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--sub);}
+.top h1{font-size:2rem;font-weight:800;letter-spacing:-0.02em;line-height:1.1;background:linear-gradient(135deg, var(--ink) 20%, var(--accent) 110%);-webkit-background-clip:text;background-clip:text;color:transparent;}
 .top .tag{font-family:var(--font-mono);font-size:.72rem;color:var(--sub);border:1px solid var(--line);padding:3px 8px;border-radius:20px;}
 #resetBtn{font-family:var(--font-mono);}
 .layout{display:grid;grid-template-columns:280px 1fr;gap:16px;align-items:start;}
@@ -58,7 +60,7 @@ table.grid th,table.grid td{border-bottom:1.5px solid var(--line-strong);border-
 table.grid th:first-child,table.grid td:first-child{border-left:none;}
 table.grid tr:last-child th,table.grid tr:last-child td{border-bottom:none;}
 table.grid tr th:last-child,table.grid tr td:last-child{border-right:none;}
-table.grid thead th{background:var(--accent);font-weight:700;font-size:.7rem;text-align:center;color:var(--accent-ink);letter-spacing:.02em;text-transform:uppercase;border-top:none;border-color:var(--accent);}
+table.grid thead th{background:var(--grid);font-weight:700;font-size:.7rem;text-align:center;color:var(--accent);letter-spacing:.02em;text-transform:uppercase;border-top:none;border-bottom-width:2px;border-bottom-color:var(--accent);}
 table.grid thead th:first-child{border-top-left-radius:13px;text-transform:none;font-family:var(--font-display);letter-spacing:0;}
 table.grid thead th:last-child{border-top-right-radius:13px;}
 table.grid .pno{display:block;font-family:var(--font-display);font-weight:700;font-size:.8rem;color:var(--ink);}
@@ -133,7 +135,10 @@ table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8p
   <div class="top">
     <div class="brand">
       <img src="logo.jpeg" alt="민족사관고등학교 로고" class="logo" id="schoolLogo" onerror="this.style.display='none'">
-      <h1>정기시험 시간표</h1>
+      <div class="brand-text">
+        <span class="eyebrow">KMLA · 민족사관고등학교</span>
+        <h1>정기시험 시간표</h1>
+      </div>
     </div>
     <div class="rowgap" style="align-items:center;">
       <span class="tag" id="statusTag">파일 없음</span>
