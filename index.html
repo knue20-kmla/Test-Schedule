@@ -1,0 +1,1519 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>정기시험 시간표</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<script src="xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f2f1ec; --panel:#ffffff; --ink:#1c1d1b; --sub:#5f6158; --line:#dcdad0;
+  --accent:#a8432d; --accent-ink:#ffffff; --good:#3f6c4a; --warn:#b8862b; --bad:#a8432d;
+  --grid:#eceae2; --chip:#efece2; --font-display:'Space Grotesk',sans-serif; --font-body:'Noto Sans KR',sans-serif; --font-mono:'JetBrains Mono',monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#17181a; --panel:#1f2123; --ink:#eceae4; --sub:#a3a49b; --line:#33352f;
+    --grid:#26282a; --chip:#26282a; --accent:#e0714f; --accent-ink:#1a1200; --good:#6fae7d; --warn:#dba64f; --bad:#e0714f;
+    color-scheme:dark; }
+}
+*{box-sizing:border-box;}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);margin:0;padding:0 16px;}
+h1,h2,h3{font-family:var(--font-display);font-weight:700;margin:0;}
+.wrap{max-width:1280px;margin:0 auto;padding:20px 0 60px;}
+.top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--line);}
+.brand{display:flex;align-items:center;gap:12px;}
+.brand .logo{height:44px;width:44px;object-fit:contain;border-radius:8px;}
+.top h1{font-size:1.4rem;letter-spacing:-0.01em;}
+.top .tag{font-family:var(--font-mono);font-size:.72rem;color:var(--sub);border:1px solid var(--line);padding:3px 8px;border-radius:20px;}
+#resetBtn{font-family:var(--font-mono);}
+.layout{display:grid;grid-template-columns:280px 1fr;gap:16px;align-items:start;}
+@media (max-width:860px){.layout{grid-template-columns:1fr;}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;min-width:0;}
+.field{margin-bottom:12px;}
+.field label{display:block;font-size:.72rem;color:var(--sub);margin-bottom:4px;text-transform:uppercase;letter-spacing:.02em;}
+.field input,.field select{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-family:var(--font-body);font-size:.85rem;}
+.filebtn{border:1.5px dashed var(--line);border-radius:10px;padding:16px;text-align:center;font-size:.8rem;color:var(--sub);cursor:pointer;}
+.filebtn:hover{border-color:var(--accent);color:var(--ink);}
+.filebtn.has{border-style:solid;border-color:var(--good);color:var(--good);}
+button.primary{width:100%;background:var(--accent);color:var(--accent-ink);border:none;border-radius:10px;padding:10px;font-family:var(--font-display);font-weight:700;font-size:.88rem;cursor:pointer;margin-top:6px;}
+button.primary:disabled{opacity:.4;cursor:not-allowed;}
+button.ghost{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;font-size:.78rem;cursor:pointer;font-family:var(--font-body);}
+button.ghost:hover{border-color:var(--accent);color:var(--accent);}
+.sheetlist{display:flex;flex-direction:column;gap:6px;margin-top:6px;}
+.sheetchip{border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:.8rem;cursor:pointer;display:flex;justify-content:space-between;}
+.sheetchip.active{border-color:var(--accent);color:var(--accent);}
+.stat{font-family:var(--font-mono);font-size:.72rem;color:var(--sub);line-height:1.7;}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:14px;flex-wrap:wrap;}
+.tab{padding:8px 12px;font-size:.83rem;font-weight:500;color:var(--sub);cursor:pointer;border-bottom:2px solid transparent;}
+.tab.active{color:var(--accent);border-color:var(--accent);}
+.tabpane{display:none;}
+.tabpane.active{display:block;}
+table.grid{border-collapse:collapse;width:100%;font-size:.76rem;table-layout:fixed;}
+table.grid th,table.grid td{border:1px solid var(--line);padding:6px;vertical-align:top;}
+table.grid th{background:var(--grid);font-weight:700;font-size:.72rem;text-align:center;color:var(--sub);}
+table.grid td{height:78px;background:var(--panel);}
+.block{background:var(--chip);border-radius:8px;padding:6px 8px;font-size:.72rem;line-height:1.4;margin-bottom:4px;cursor:grab;}
+.block b{font-weight:700;}
+.block small{display:block;color:var(--sub);font-family:var(--font-mono);font-size:.63rem;}
+.block.flag{outline:1.5px solid var(--bad);}
+.dropzone.over{outline:2px dashed var(--accent);outline-offset:-3px;}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-bottom:16px;}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px;}
+.card .num{font-family:var(--font-display);font-size:1.6rem;}
+.card .lbl{font-size:.72rem;color:var(--sub);margin-top:2px;}
+.flaglist{display:flex;flex-direction:column;gap:8px;}
+.flagrow{border:1px solid var(--line);border-left:4px solid var(--warn);border-radius:8px;padding:8px 10px;font-size:.82rem;background:var(--panel);}
+.flagrow.bad{border-left-color:var(--bad);}
+.flagrow.good{border-left-color:var(--good);}
+table.teach{width:100%;border-collapse:collapse;font-size:.8rem;}
+table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;}
+.bar{height:8px;background:var(--grid);border-radius:4px;overflow:hidden;}
+.bar > div{height:100%;background:var(--accent);}
+.emptystate{padding:50px 20px;text-align:center;color:var(--sub);font-size:.9rem;}
+.small{font-size:.72rem;color:var(--sub);}
+.legend{display:flex;gap:14px;font-size:.72rem;color:var(--sub);margin-bottom:10px;flex-wrap:wrap;}
+.legend span{display:inline-flex;align-items:center;gap:5px;}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
+.modetabs{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;}
+.modetab{padding:8px 14px;border:1px solid var(--line);border-radius:20px;font-size:.82rem;font-weight:500;cursor:pointer;color:var(--sub);}
+.modetab.active{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+.rowgap{display:flex;gap:8px;flex-wrap:wrap;}
+.chk{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);padding:5px 9px;border-radius:8px;font-size:.8rem;cursor:pointer;user-select:none;}
+.chk input{accent-color:var(--accent);}
+.genpane{display:none;}
+.genpane.active{display:block;}
+.daytabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
+.daytab{font-family:var(--font-mono);font-size:.72rem;padding:5px 9px;border:1px solid var(--line);border-radius:7px;cursor:pointer;color:var(--sub);}
+.daytab.active{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+.pill{background:var(--chip);border-radius:7px;padding:3px 6px;font-size:.7rem;line-height:1.3;cursor:grab;border:1px solid transparent;margin-bottom:3px;}
+.pill b{font-weight:700;}
+.pill small{color:var(--sub);display:block;font-family:var(--font-mono);font-size:.62rem;}
+.pill.bad{border-color:var(--bad);}
+.searchbar{display:flex;gap:8px;margin-bottom:14px;}
+.searchbar input{flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--ink);}
+.studentcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px;}
+.studentcard table{width:100%;border-collapse:collapse;font-size:.8rem;}
+.studentcard td,.studentcard th{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left;}
+.trayrow{display:flex;flex-wrap:wrap;gap:6px;padding:10px;background:var(--chip);border-radius:10px;min-height:44px;margin-bottom:14px;}
+.badge{display:inline-block;font-family:var(--font-mono);font-size:.65rem;padding:2px 7px;border-radius:20px;}
+.badge.bad{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad);}
+.modalbg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px;}
+.modalbg[hidden]{display:none;}
+.modalbox{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;max-width:480px;width:100%;max-height:80vh;overflow-y:auto;}
+.modalhead{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;}
+.rosterlist{width:100%;border-collapse:collapse;font-size:.83rem;}
+.rosterlist th,.rosterlist td{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left;}
+.excchip{display:inline-flex;align-items:center;gap:6px;background:var(--chip);border-radius:20px;padding:4px 6px 4px 10px;font-size:.76rem;font-family:var(--font-mono);}
+.excchip button{border:none;background:none;color:var(--sub);cursor:pointer;font-size:.85rem;line-height:1;padding:2px 4px;}
+.excchip button:hover{color:var(--bad);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div class="brand">
+      <img src="logo.jpeg" alt="민족사관고등학교 로고" class="logo" id="schoolLogo" onerror="this.style.display='none'">
+      <h1>정기시험 시간표</h1>
+    </div>
+    <div class="rowgap" style="align-items:center;">
+      <span class="tag" id="statusTag">파일 없음</span>
+      <button class="ghost" id="resetBtn" title="처음부터 다시 시작">↺ 초기화</button>
+    </div>
+  </div>
+
+  <div class="modetabs">
+    <div class="modetab active" data-mode="generate">수강신청 원자료로 새로 생성</div>
+    <div class="modetab" data-mode="optimize">기존 시간표 최적화</div>
+  </div>
+  <div class="small" id="modeHint" style="margin-bottom:14px;">엑셀을 업로드하면 <b>개별현황</b> 시트(학년/과목명/단위/블록/담당교사/성명/학번/수강생)가 있는지, <b>OO학년 시간표</b> 시트가 있는지에 따라 알맞은 모드로 자동 전환됩니다.</div>
+
+  <!-- ============ 모드 1: 원자료로 새로 생성 ============ -->
+  <div id="modeGenerate" class="layout">
+    <div class="panel">
+      <div class="field">
+        <label>수강신청 원자료 엑셀 업로드</label>
+        <div class="filebtn" id="genFileBtn">파일을 선택하거나 드롭하세요 (.xlsx)<br><span class="small">예: 26-1 수강신청내역.xlsx (개별현황 시트)</span></div>
+        <input type="file" id="genFileInput" accept=".xlsx,.xls" hidden>
+      </div>
+      <div class="field">
+        <label>학기</label>
+        <div class="rowgap">
+          <label class="chk"><input type="radio" name="genSem" value="1" checked> 1학기</label>
+          <label class="chk"><input type="radio" name="genSem" value="2"> 2학기</label>
+        </div>
+      </div>
+      <div class="field">
+        <label>시험 종류</label>
+        <div class="rowgap">
+          <label class="chk"><input type="radio" name="genExamType" value="중간" checked> 중간고사</label>
+          <label class="chk"><input type="radio" name="genExamType" value="기말"> 기말고사</label>
+        </div>
+      </div>
+      <div class="field">
+        <label>대상 학년</label>
+        <div class="rowgap">
+          <label class="chk"><input type="checkbox" class="genGradeChk" value="1" checked> 1학년</label>
+          <label class="chk"><input type="checkbox" class="genGradeChk" value="2" checked> 2학년</label>
+          <label class="chk"><input type="checkbox" class="genGradeChk" value="3" checked> 3학년</label>
+        </div>
+      </div>
+      <div class="field">
+        <label>시험 기간</label>
+        <div style="display:flex;gap:8px;">
+          <input type="date" id="genStart">
+          <input type="date" id="genEnd">
+        </div>
+        <div class="small" style="margin-top:4px;">주말은 자동 제외됩니다.</div>
+      </div>
+      <div class="field">
+        <label>제외할 날짜 (공휴일 등)</label>
+        <div style="display:flex;gap:8px;">
+          <input type="date" id="genExcludeInput" style="flex:1;">
+          <button type="button" class="ghost" id="genExcludeAddBtn">제외</button>
+        </div>
+        <div class="rowgap" id="genExcludeList" style="margin-top:6px;"></div>
+      </div>
+      <div class="field">
+        <label>학생 1일 최대 응시 과목 수</label>
+        <div class="rowgap">
+          <label class="chk"><input type="radio" name="genMaxPerDay" value="2" checked> 2과목</label>
+          <label class="chk"><input type="radio" name="genMaxPerDay" value="3"> 3과목</label>
+        </div>
+        <div class="small" style="margin-top:4px;">이 값을 지키면서 배정이 불가능한 과목이 있으면 배정 후 알려드립니다.</div>
+      </div>
+      <button class="primary" id="genRunBtn" disabled>시간표 생성</button>
+      <button class="ghost" id="genExportBtn" style="width:100%;margin-top:8px;display:none;">엑셀로 내보내기</button>
+      <div class="stat" id="genStatBox" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="panel" style="min-height:420px;">
+      <div class="tabs">
+        <div class="tab active" data-genpane="full">전체 시간표</div>
+        <div class="tab" data-genpane="student">학생별 시간표</div>
+        <div class="tab" data-genpane="draft">충돌 · 수동 배정</div>
+        <div class="tab" data-genpane="proctor">감독 배정</div>
+      </div>
+      <div class="genpane active" id="genpane-full"><div class="emptystate">왼쪽에서 설정을 마치고 엑셀을 업로드한 뒤 "시간표 생성"을 눌러주세요.</div></div>
+      <div class="genpane" id="genpane-student"><div class="emptystate">시간표를 먼저 생성해주세요.</div></div>
+      <div class="genpane" id="genpane-draft"><div class="emptystate">시간표를 먼저 생성해주세요.</div></div>
+      <div class="genpane" id="genpane-proctor"><div class="emptystate">시간표를 먼저 생성해주세요.</div></div>
+    </div>
+  </div>
+
+  <!-- ============ 모드 2: 기존 시간표 최적화 ============ -->
+  <div id="modeOptimize" class="layout" style="display:none;">
+    <div class="panel">
+      <div class="field">
+        <label>기존 시간표 엑셀 업로드</label>
+        <div class="filebtn" id="fileBtn">파일을 선택하거나 드롭하세요 (.xlsx)<br><span class="small">예: OO학년 시간표 시트가 포함된 파일</span></div>
+        <input type="file" id="fileInput" accept=".xlsx,.xls" hidden>
+      </div>
+      <div class="field">
+        <label>대상 시트</label>
+        <div class="sheetlist" id="sheetList"><div class="small">파일을 업로드하면 시트 목록이 표시됩니다.</div></div>
+      </div>
+      <div class="field">
+        <label>재배치용 시험 기간 (선택)</label>
+        <div style="display:flex;gap:8px;">
+          <input type="date" id="cfgStart">
+          <input type="date" id="cfgEnd">
+        </div>
+        <div class="small" style="margin-top:4px;">최적화 시 날짜 라벨을 매기는 데 사용됩니다. 주말 자동 제외.</div>
+      </div>
+      <button class="primary" id="optimizeBtn" disabled>최적화 실행</button>
+      <button class="ghost" id="exportBtn" style="width:100%;margin-top:8px;display:none;">엑셀로 내보내기</button>
+      <div class="stat" id="statBox" style="margin-top:12px;"></div>
+    </div>
+
+    <div class="panel" style="min-height:420px;">
+      <div class="tabs">
+        <div class="tab active" data-tab="current">현재 시간표</div>
+        <div class="tab" data-tab="report">분석 리포트</div>
+        <div class="tab" data-tab="optimized">최적화 초안 (드래그로 수정)</div>
+      </div>
+      <div class="tabpane active" id="pane-current"><div class="emptystate">왼쪽에서 엑셀 파일을 업로드하고 시트를 선택해주세요.</div></div>
+      <div class="tabpane" id="pane-report"><div class="emptystate">시트를 선택해주세요.</div></div>
+      <div class="tabpane" id="pane-optimized"><div class="emptystate">최적화를 먼저 실행해주세요.</div></div>
+    </div>
+  </div>
+</div>
+
+<div id="rosterModalBg" class="modalbg" hidden>
+  <div class="modalbox">
+    <div class="modalhead">
+      <h3 id="rosterTitle" style="font-size:1rem;"></h3>
+      <button class="ghost" id="rosterCloseBtn">닫기</button>
+    </div>
+    <div id="rosterBody"></div>
+  </div>
+</div>
+
+<script>
+/* ================= 상수 ================= */
+const PERIODS = [
+  {no:1, time:'09:00-09:50'},
+  {no:2, time:'10:10-11:00'},
+  {no:3, time:'11:20-12:10'},
+  {no:4, time:'13:40-14:30'},
+];
+const COMMON_KEYWORDS = ['공통국어','공통수학','공통영어','통합과학','통합사회','한국사'];
+function isCommonName(name){ return COMMON_KEYWORDS.some(k=>name.includes(k)); }
+function stripWS(s){ return String(s==null?'':s).replace(/\r\n/g,' ').replace(/\s+/g,' ').trim(); }
+// toISOString()은 UTC 기준이라 한국(UTC+9)에서는 날짜가 하루 앞당겨지는 버그가 있었다(예: 9/28 월요일이 9/27 일요일로 계산됨).
+// 반드시 로컬 연/월/일 값으로 직접 포맷해야 한다.
+function fmtDate(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${dd}`; }
+function businessDaysBetween(startStr,endStr){
+  const out=[]; let d=new Date(startStr+'T00:00:00'); const end=new Date(endStr+'T00:00:00');
+  while(d<=end){ const wd=d.getDay(); if(wd!==0&&wd!==6) out.push(fmtDate(d)); d.setDate(d.getDate()+1); }
+  return out;
+}
+function dayLabelFromDate(dstr){
+  const d=new Date(dstr+'T00:00:00'); const w=['일','월','화','수','목','금','토'][d.getDay()];
+  return `${d.getMonth()+1}/${d.getDate()}(${w})`;
+}
+
+let WORKBOOK = null;
+let SHEETS = {}; // name -> {headerIdx, headerRow, colIdx, sessions:[...]}
+let currentSheetName = null;
+let OPTIMIZED = null; // {days:[{slots:{1..4:block|null}}], sheetName}
+
+/* ================= 파싱 ================= */
+function colIndexByRegex(headerRow, re){
+  for(let i=0;i<headerRow.length;i++){ if(re.test(stripWS(headerRow[i]))) return i; }
+  return -1;
+}
+function findHeaderRow(rows){
+  for(let i=0;i<Math.min(rows.length,12);i++){
+    const row = rows[i].map(stripWS);
+    if(row.some(c=>/^날짜/.test(c)) && row.some(c=>/^교시/.test(c))) return i;
+  }
+  return -1;
+}
+function parseSheet(rows){
+  const headerIdx = findHeaderRow(rows);
+  if(headerIdx<0) return null;
+  const header = rows[headerIdx];
+  const idx = {
+    date: colIndexByRegex(header, /^날짜/),
+    period: colIndexByRegex(header, /^교시/),
+    subject: colIndexByRegex(header, /^과목/),
+    teacher: colIndexByRegex(header, /담당교사/),
+    module: colIndexByRegex(header, /통합기호/),
+    unit: colIndexByRegex(header, /^단위/),
+    testTime: colIndexByRegex(header, /시험시간/),
+    supervisor: colIndexByRegex(header, /진행교사/),
+    roomsText: colIndexByRegex(header, /응시인원/),
+    count: colIndexByRegex(header, /^(인원|총인원)$/),
+  };
+  const sessions = [];
+  let currentDay = null, curBlock = null;
+  for(let i=headerIdx+1;i<rows.length;i++){
+    const r = rows[i];
+    if(!r || r.every(c=>stripWS(c)==='')) continue;
+    const dateCell = idx.date>=0 ? stripWS(r[idx.date]) : '';
+    const periodCell = idx.period>=0 ? stripWS(r[idx.period]) : '';
+    if(dateCell) currentDay = dateCell;
+    if(periodCell){
+      if(curBlock) sessions.push(curBlock);
+      curBlock = {
+        day: currentDay, period: parseInt(periodCell,10)||null,
+        testTime: idx.testTime>=0?stripWS(r[idx.testTime]):'',
+        supervisor: idx.supervisor>=0?stripWS(r[idx.supervisor]):'',
+        roomsText: idx.roomsText>=0?stripWS(r[idx.roomsText]):'',
+        subjects: [],
+      };
+    }
+    if(!curBlock) continue;
+    const subjectName = idx.subject>=0 ? stripWS(r[idx.subject]) : '';
+    if(!subjectName) continue;
+    let cnt = 0;
+    if(idx.count>=0){ const raw = stripWS(r[idx.count]).replace(/[^0-9]/g,''); cnt = raw? parseInt(raw,10):0; }
+    curBlock.subjects.push({
+      subject: subjectName,
+      teacher: idx.teacher>=0?stripWS(r[idx.teacher]):'',
+      module: idx.module>=0?stripWS(r[idx.module]):'',
+      unit: idx.unit>=0?stripWS(r[idx.unit]):'',
+      count: cnt,
+    });
+  }
+  if(curBlock) sessions.push(curBlock);
+  sessions.forEach(s=> s.totalCount = s.subjects.reduce((a,x)=>a+x.count,0));
+  const dayKeys = [];
+  sessions.forEach(s=>{ if(s.day && !dayKeys.includes(s.day)) dayKeys.push(s.day); });
+  return {headerIdx, header, idx, sessions, dayKeys};
+}
+
+function handleFile(file){
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    try{
+      WORKBOOK = XLSX.read(ev.target.result, {type:'array'});
+      SHEETS = {};
+      const candidateSheets = WORKBOOK.SheetNames.filter(n=>/시간표/.test(n));
+      const useSheets = candidateSheets.length? candidateSheets : WORKBOOK.SheetNames;
+      const sheetListEl = document.getElementById('sheetList');
+      sheetListEl.innerHTML = '';
+      let firstOk = null;
+      useSheets.forEach(name=>{
+        const rows = XLSX.utils.sheet_to_json(WORKBOOK.Sheets[name], {header:1, raw:false, defval:''});
+        const parsed = parseSheet(rows);
+        if(!parsed) return;
+        SHEETS[name] = parsed;
+        if(!firstOk) firstOk = name;
+        const chip = document.createElement('div');
+        chip.className = 'sheetchip';
+        chip.textContent = `${name} (${parsed.sessions.length}세션)`;
+        chip.onclick = ()=> selectSheet(name);
+        chip.dataset.name = name;
+        sheetListEl.appendChild(chip);
+      });
+      if(!firstOk){
+        alert('시간표 형식(날짜/교시/과목 컬럼)을 가진 시트를 찾지 못했습니다.');
+        document.getElementById('fileBtn').classList.remove('has');
+        return;
+      }
+      document.getElementById('fileBtn').classList.add('has');
+      document.getElementById('fileBtn').innerHTML = `✓ ${file.name}`;
+      document.getElementById('optimizeBtn').disabled = false;
+      selectSheet(firstOk);
+    }catch(err){
+      alert('엑셀 파싱 중 오류: '+err.message);
+      console.error(err);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function selectSheet(name){
+  currentSheetName = name;
+  OPTIMIZED = null;
+  document.getElementById('exportBtn').style.display = 'none';
+  document.querySelectorAll('.sheetchip').forEach(c=> c.classList.toggle('active', c.dataset.name===name));
+  document.getElementById('statusTag').textContent = `${name} · ${SHEETS[name].sessions.length}개 시험 세션`;
+  renderCurrent();
+  renderReport();
+  document.getElementById('pane-optimized').innerHTML = '<div class="emptystate">왼쪽 "최적화 실행" 버튼을 눌러주세요.</div>';
+  renderStat();
+}
+
+function renderStat(){
+  const s = SHEETS[currentSheetName];
+  const box = document.getElementById('statBox');
+  box.innerHTML = `
+    <div>세션 수: ${s.sessions.length}</div>
+    <div>사용 일수: ${s.dayKeys.length}일</div>
+    <div>총 응시 인원(합): ${s.sessions.reduce((a,x)=>a+x.totalCount,0)}</div>
+  `;
+}
+
+/* ================= 렌더 : 현재 시간표 ================= */
+function renderCurrent(){
+  const pane = document.getElementById('pane-current');
+  const s = SHEETS[currentSheetName];
+  let html = '<div style="overflow-x:auto;"><table class="grid"><thead><tr><th style="width:60px;">교시</th>' +
+    s.dayKeys.map(d=>`<th>${d}</th>`).join('') + '</tr></thead><tbody>';
+  PERIODS.forEach(p=>{
+    html += `<tr><th>${p.no}교시<br><span style="font-weight:400;">${p.time}</span></th>`;
+    s.dayKeys.forEach(day=>{
+      const block = s.sessions.find(b=>b.day===day && b.period===p.no);
+      html += '<td>';
+      if(block){
+        html += `<div class="block ${block.totalCount>100?'flag':''}"><b>${block.subjects.map(x=>x.subject).join(' / ')}</b>` +
+          `<small>${block.subjects.map(x=>x.teacher).filter(Boolean).join(', ')} · 총 ${block.totalCount}명</small>` +
+          `<small>${block.roomsText.split('•').filter(Boolean).map(t=>t.trim()).join(' / ').slice(0,90)}</small></div>`;
+      }
+      html += '</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  pane.innerHTML = html;
+}
+
+/* ================= 렌더 : 분석 리포트 ================= */
+function analyzeSheet(s){
+  const dayPeriods = {};
+  s.dayKeys.forEach(d=> dayPeriods[d]=new Set());
+  s.sessions.forEach(b=>{ if(b.day) dayPeriods[b.day].add(b.period); });
+  const totalSlotsAvail = s.dayKeys.length*4;
+  const totalSlotsUsed = s.sessions.length;
+  const packingPct = totalSlotsAvail? Math.round(totalSlotsUsed/totalSlotsAvail*100) : 0;
+  const gapDays = s.dayKeys.filter(d=> dayPeriods[d].size<4);
+  const overCap = s.sessions.filter(b=> b.totalCount>100 && !(/D-1/.test(b.roomsText) && /D-2/.test(b.roomsText)));
+  const teacherLoad = {};
+  s.sessions.forEach(b=> b.subjects.forEach(su=>{
+    if(!su.teacher) return;
+    su.teacher.split(/[,\n]/).map(t=>t.trim()).filter(Boolean).forEach(t=>{
+      teacherLoad[t] = (teacherLoad[t]||0)+1;
+    });
+  }));
+  const teacherRows = Object.entries(teacherLoad).sort((a,b)=>b[1]-a[1]);
+  // 1학년 공통과목 하루 2개 이상 배치 여부(데이터 품질 점검)
+  const commonPerDay = {};
+  s.sessions.forEach(b=>{
+    if(b.subjects.length===1 && isCommonName(b.subjects[0].subject)){
+      commonPerDay[b.day] = (commonPerDay[b.day]||0)+1;
+    }
+  });
+  const commonClash = Object.entries(commonPerDay).filter(([,c])=>c>1);
+  return {dayPeriods, totalSlotsAvail, totalSlotsUsed, packingPct, gapDays, overCap, teacherRows, commonClash};
+}
+
+function renderReport(){
+  const pane = document.getElementById('pane-report');
+  const s = SHEETS[currentSheetName];
+  const a = analyzeSheet(s);
+  let html = '<div class="cards">' +
+    `<div class="card"><div class="num">${s.dayKeys.length}</div><div class="lbl">사용 일수</div></div>` +
+    `<div class="card"><div class="num">${a.packingPct}%</div><div class="lbl">교시 활용률 (${a.totalSlotsUsed}/${a.totalSlotsAvail})</div></div>` +
+    `<div class="card"><div class="num">${a.gapDays.length}</div><div class="lbl">교시가 덜 찬 날 (압축 가능)</div></div>` +
+    `<div class="card"><div class="num">${a.overCap.length}</div><div class="lbl">100명 초과 · 분할 확인 필요</div></div>` +
+    '</div>';
+
+  html += '<h3 style="font-size:.95rem;margin-bottom:8px;">플래그</h3><div class="flaglist" style="margin-bottom:20px;">';
+  if(a.gapDays.length){
+    html += `<div class="flagrow"><b>${a.gapDays.length}개 날짜</b>가 4교시를 다 쓰지 않았습니다 (${a.gapDays.join(', ')}). 최적화를 실행하면 이 날들을 압축해 전체 시험 일수를 줄일 수 있습니다.</div>`;
+  }
+  a.overCap.forEach(b=>{
+    html += `<div class="flagrow bad"><b>${b.subjects.map(x=>x.subject).join('/')}</b> (${b.day} ${b.period}교시) — 총 ${b.totalCount}명인데 D-1/D-2 분할 표기가 확인되지 않습니다. 강의실 배정을 다시 확인하세요.</div>`;
+  });
+  a.commonClash.forEach(([day,c])=>{
+    html += `<div class="flagrow bad">${day}에 1학년 공통과목이 ${c}개 배치되어 "하루 1과목" 원칙과 충돌합니다.</div>`;
+  });
+  if(!a.gapDays.length && !a.overCap.length && !a.commonClash.length){
+    html += '<div class="flagrow good">발견된 이슈가 없습니다. 현재 시간표는 규칙을 잘 지키고 있습니다.</div>';
+  }
+  html += '</div>';
+
+  html += '<h3 style="font-size:.95rem;margin-bottom:8px;">교사별 출제 횟수 (감독 부담 참고)</h3>';
+  html += '<table class="teach"><thead><tr><th>교사</th><th>출제 과목 수</th><th></th></tr></thead><tbody>';
+  const max = a.teacherRows.length? a.teacherRows[0][1] : 1;
+  a.teacherRows.forEach(([t,c])=>{
+    html += `<tr><td>${t}</td><td>${c}</td><td><div class="bar"><div style="width:${c/max*100}%"></div></div></td></tr>`;
+  });
+  html += '</tbody></table>';
+  pane.innerHTML = html;
+}
+
+/* ================= 최적화 (재배치) ================= */
+function optimizeSheet(sessions){
+  const isCommon = s=> s.subjects.length===1 && isCommonName(s.subjects[0].subject);
+  const commons = sessions.filter(isCommon);
+  const others = sessions.filter(s=>!isCommon(s));
+  const days = commons.map(b=>({slots:{1:b,2:null,3:null,4:null}}));
+  let di = 0;
+  function nextFreeSlot(){
+    while(true){
+      if(di>=days.length) days.push({slots:{1:null,2:null,3:null,4:null}});
+      const d = days[di];
+      for(const p of [1,2,3,4]){ if(!d.slots[p]) return {d,p}; }
+      di++;
+    }
+  }
+  others.forEach(b=>{ const {d,p} = nextFreeSlot(); d.slots[p]=b; });
+  return days;
+}
+
+function runOptimize(){
+  const s = SHEETS[currentSheetName];
+  const days = optimizeSheet(s.sessions);
+  const usedDays = days.filter(d=>Object.values(d.slots).some(Boolean)).length;
+  const startDate = document.getElementById('cfgStart').value;
+  const endDate = document.getElementById('cfgEnd').value;
+  let dateLabels = null;
+  if(startDate && endDate){
+    const biz = businessDaysBetween(startDate, endDate);
+    if(biz.length >= usedDays) dateLabels = biz.slice(0, usedDays).map(dayLabelFromDate);
+  }
+  OPTIMIZED = {days: days.slice(0, usedDays), sheetName: currentSheetName, dateLabels, originalDays: s.dayKeys.length};
+  document.getElementById('exportBtn').style.display = 'block';
+  renderOptimized();
+  document.querySelector('.tab[data-tab="optimized"]').click();
+}
+
+function renderOptimized(){
+  const pane = document.getElementById('pane-optimized');
+  if(!OPTIMIZED){ pane.innerHTML = '<div class="emptystate">최적화를 먼저 실행해주세요.</div>'; return; }
+  const {days, originalDays, dateLabels} = OPTIMIZED;
+  let html = `<div class="flagrow ${days.length<originalDays?'good':''}" style="margin-bottom:14px;">` +
+    `기존 <b>${originalDays}일</b> → 최적화 후 <b>${days.length}일</b>` +
+    (days.length<originalDays ? ` (${originalDays-days.length}일 단축)` : days.length===originalDays? ' (이미 최적 상태입니다)' : '') +
+    `</div>`;
+  html += '<div class="small" style="margin-bottom:8px;">카드를 드래그해서 다른 교시로 옮길 수 있습니다 (같은 칸과 자리를 맞바꿉니다).</div>';
+  html += '<div style="overflow-x:auto;"><table class="grid"><thead><tr><th style="width:60px;">교시</th>' +
+    days.map((d,i)=>`<th>${dateLabels?dateLabels[i]:(i+1)+'일차'}</th>`).join('') + '</tr></thead><tbody>';
+  PERIODS.forEach(p=>{
+    html += `<tr><th>${p.no}교시</th>`;
+    days.forEach((d,di)=>{
+      const block = d.slots[p.no];
+      html += `<td class="dropzone" data-day="${di}" data-period="${p.no}">`;
+      if(block){
+        html += `<div class="block" draggable="true" data-day="${di}" data-period="${p.no}"><b>${block.subjects.map(x=>x.subject).join(' / ')}</b>` +
+          `<small>${block.subjects.map(x=>x.teacher).filter(Boolean).join(', ')} · 총 ${block.totalCount}명</small></div>`;
+      }
+      html += '</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  pane.innerHTML = html;
+
+  pane.querySelectorAll('[draggable="true"]').forEach(el=>{
+    el.addEventListener('dragstart', ev=>{
+      ev.dataTransfer.setData('text/plain', JSON.stringify({day:el.dataset.day, period:el.dataset.period}));
+    });
+  });
+  pane.querySelectorAll('.dropzone').forEach(el=>{
+    el.addEventListener('dragover', ev=>{ ev.preventDefault(); el.classList.add('over'); });
+    el.addEventListener('dragleave', ()=> el.classList.remove('over'));
+    el.addEventListener('drop', ev=>{
+      ev.preventDefault(); el.classList.remove('over');
+      const src = JSON.parse(ev.dataTransfer.getData('text/plain')||'{}');
+      if(src.day===undefined) return;
+      const tDay = parseInt(el.dataset.day,10), tPeriod = parseInt(el.dataset.period,10);
+      const sDay = parseInt(src.day,10), sPeriod = parseInt(src.period,10);
+      const tmp = OPTIMIZED.days[tDay].slots[tPeriod];
+      OPTIMIZED.days[tDay].slots[tPeriod] = OPTIMIZED.days[sDay].slots[sPeriod];
+      OPTIMIZED.days[sDay].slots[sPeriod] = tmp;
+      renderOptimized();
+    });
+  });
+}
+
+/* ================= 내보내기 ================= */
+function exportOptimized(){
+  if(!OPTIMIZED) return;
+  const s = SHEETS[currentSheetName];
+  const header = ['날짜','교시','과목','담당교사','통합기호','단위','시험시간','진행교사','응시인원 및 과목별 고사장소','인원'];
+  const aoa = [[`${currentSheetName} (최적화)`],[],header];
+  OPTIMIZED.days.forEach((d,di)=>{
+    const dayLabel = OPTIMIZED.dateLabels ? OPTIMIZED.dateLabels[di] : `${di+1}일차`;
+    let dayPrinted = false;
+    PERIODS.forEach(p=>{
+      const block = d.slots[p.no];
+      if(!block) return;
+      block.subjects.forEach((su,i)=>{
+        aoa.push([
+          (!dayPrinted && i===0) ? dayLabel : '',
+          i===0 ? p.no : '',
+          su.subject, su.teacher, su.module, su.unit,
+          i===0 ? block.testTime : '',
+          i===0 ? block.supervisor : '',
+          i===0 ? block.roomsText : '',
+          su.count,
+        ]);
+      });
+      dayPrinted = true;
+    });
+  });
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, currentSheetName.slice(0,28));
+  XLSX.writeFile(wb, `${currentSheetName}_최적화.xlsx`);
+}
+
+/* ================= 이벤트 ================= */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick = ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.tabpane').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('pane-'+t.dataset.tab).classList.add('active');
+  };
+});
+const fileBtn = document.getElementById('fileBtn');
+const fileInput = document.getElementById('fileInput');
+fileBtn.onclick = ()=> fileInput.click();
+fileBtn.addEventListener('dragover', e=>e.preventDefault());
+fileBtn.addEventListener('drop', e=>{ e.preventDefault(); const f=e.dataTransfer.files[0]; if(f) handleFile(f); });
+fileInput.onchange = ()=>{ if(fileInput.files[0]) handleFile(fileInput.files[0]); };
+document.getElementById('optimizeBtn').onclick = ()=>{ try{ runOptimize(); }catch(err){ alert('최적화 중 오류: '+err.message); console.error(err); } };
+document.getElementById('exportBtn').onclick = exportOptimized;
+
+(function initDates(){
+  const today = new Date();
+  const st = new Date(today); st.setDate(st.getDate()+14);
+  const en = new Date(st); en.setDate(en.getDate()+6);
+  document.getElementById('cfgStart').value = fmtDate(st);
+  document.getElementById('cfgEnd').value = fmtDate(en);
+  document.getElementById('genStart').value = fmtDate(st);
+  document.getElementById('genEnd').value = fmtDate(en);
+})();
+
+/* =========================================================
+   모드 2: 수강신청 원자료(개별현황) -> 새 시간표 생성
+   ========================================================= */
+const ROOMS = [
+  {name:'D-1', cap:80, big:true}, {name:'D-2', cap:80, big:true},
+  {name:'C-203', cap:35, big:false}, {name:'C-205', cap:35, big:false},
+  {name:'C-210', cap:35, big:false}, {name:'C-212', cap:35, big:false},
+];
+const COMMON_SUBJECTS_G1 = ['공통국어','공통수학','공통영어','통합과학','통합사회','한국사'];
+// 두 과목의 수강학년이 강의실을 같이 써도 되는지 판단: 한쪽이 다른 쪽의 부분집합이면(예: "1학년"과 "1,2학년")
+// 어차피 겹치는 학생이 이미 그 통합과목 안에 포함돼 있으므로 같은 방을 써도 된다. 완전히 다른 학년(1학년 vs 2학년)만 막는다.
+// (같은 시간에 배정된 두 과목은 스케줄링 단계에서 이미 학생이 절대 겹치지 않는 것이 보장되어 있다.)
+function gradesCompatible(gA, gB){
+  const a = new Set(gA), b = new Set(gB);
+  const aSubB = [...a].every(g=>b.has(g));
+  const bSubA = [...b].every(g=>a.has(g));
+  return aSubB || bSubA;
+}
+const FOREIGN_LANG_G1 = ['중국어','프랑스어','스페인어','한문'];
+function uid(prefix){ return prefix+'_'+Math.random().toString(36).slice(2,9); }
+function setsShareMember(a,b){ for(const x of a){ if(b.has(x)) return true; } return false; }
+
+let GEN_RAW_ROWS = null;
+let GEN_ADMIN_CLASS_MAP = new Map(); // 성명 -> 행정반 번호 (있으면 강의실 분반 시 행정반 순으로 나눔)
+// 같은 워크북에 "OO학년 행정반" 시트(성명/행정반/수업반 컬럼이 여러 묶음으로 반복되는 형식)가 있으면 파싱한다.
+function parseAdminClassSheets(wb){
+  const map = new Map();
+  wb.SheetNames.filter(n=>/행정반/.test(n)).forEach(name=>{
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets[name], {header:1, raw:false, defval:''});
+    const hIdx = rows.findIndex(r=>r.some(c=>String(c).trim()==='성명'));
+    if(hIdx<0) return;
+    const header = rows[hIdx];
+    const nameCols = [];
+    header.forEach((h,i)=>{ if(String(h).trim()==='성명') nameCols.push(i); });
+    for(let i=hIdx+1;i<rows.length;i++){
+      const r = rows[i];
+      nameCols.forEach(ci=>{
+        const nm = String(r[ci]||'').trim();
+        const cls = String(r[ci+1]||'').trim();
+        if(nm && /^[0-9]+$/.test(cls)) map.set(nm, parseInt(cls,10));
+      });
+    }
+  });
+  return map;
+}
+let GENSTATE = null;
+let genExcludedDates = new Set(); // 공휴일 등 시험 기간 중 임의로 제외한 날짜(YYYY-MM-DD)
+function renderGenExcludeList(){
+  const el = document.getElementById('genExcludeList');
+  if(!genExcludedDates.size){ el.innerHTML = '<span class="small">제외된 날짜 없음</span>'; return; }
+  el.innerHTML = [...genExcludedDates].sort().map(d=>
+    `<span class="excchip">${dayLabelFromDate(d)}<button type="button" data-date="${d}">×</button></span>`
+  ).join('');
+  el.querySelectorAll('button[data-date]').forEach(btn=>{
+    btn.onclick = ()=>{ genExcludedDates.delete(btn.dataset.date); renderGenExcludeList(); };
+  });
+}
+document.getElementById('genExcludeAddBtn').onclick = ()=>{
+  const input = document.getElementById('genExcludeInput');
+  if(!input.value) return;
+  genExcludedDates.add(input.value);
+  input.value = '';
+  renderGenExcludeList();
+};
+renderGenExcludeList();
+
+function findGenHeaderRow(rows){
+  for(let i=0;i<Math.min(rows.length,10);i++){
+    const row = rows[i].map(c=>String(c||'').trim());
+    if(row.includes('학년') && row.includes('과목명')) return i;
+  }
+  return 0;
+}
+function parseEnrollmentWorkbook(wb){
+  let sheetName = wb.SheetNames.find(n=>n.includes('개별현황'));
+  if(!sheetName) return null;
+  const ws = wb.Sheets[sheetName];
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
+  const hIdx = findGenHeaderRow(rows);
+  const header = rows[hIdx].map(c=>String(c||'').trim());
+  const col = name => header.indexOf(name);
+  const idx = {grade:col('학년'), subject:col('과목명'), unit: col('단위')>=0?col('단위'):col('학점'), block:col('블록'), teacher:col('담당교사'), name:col('성명'), sid:col('학번'), count:col('수강생'), adminClass:col('행정반')};
+  const out = [];
+  let inferredCount = 0;
+  for(let i=hIdx+1;i<rows.length;i++){
+    const r = rows[i];
+    if(!r || r.every(c=>String(c||'').trim()==='')) continue;
+    const rawGradeStr = String(r[idx.grade]||'').trim();
+    const cleanGrade = /^[1-3]$/.test(rawGradeStr) ? parseInt(rawGradeStr,10) : null;
+    const sidVal = idx.sid>=0 ? String(r[idx.sid]||'').trim() : '';
+    // 학년 칸에 "1,2"처럼 여러 학년이 함께 적혀 있거나 형식이 다르면, 그 값은 과목의 개설 대상일 뿐
+    // 이 학생 개개인의 실제 학년이 아니므로, 학번(YY+학년+일련번호)에서 진짜 학년을 읽어온다.
+    let grade = cleanGrade;
+    if(grade===null){
+      const m = sidVal.match(/^\d{2}([1-3])\d+$/);
+      if(m){ grade = parseInt(m[1],10); inferredCount++; }
+    }
+    const subject = String(r[idx.subject]||'').trim();
+    if(!grade || !subject) continue;
+    out.push({
+      grade, subject,
+      unit: idx.unit>=0?String(r[idx.unit]||'').trim():'',
+      block: idx.block>=0?String(r[idx.block]||'').trim():'',
+      teacher: idx.teacher>=0?String(r[idx.teacher]||'').trim():'미지정',
+      name: idx.name>=0?String(r[idx.name]||'').trim():'',
+      sid: idx.sid>=0?String(r[idx.sid]||'').trim():'',
+      adminClass: (idx.adminClass>=0 && /^[0-9]+$/.test(String(r[idx.adminClass]||'').trim())) ? parseInt(r[idx.adminClass],10) : null,
+    });
+  }
+  out._inferredCount = inferredCount;
+  return out;
+}
+// 학년/블록에 따라 이 학생행이 속할 "통합 시험군"을 정한다 (학기별 통합·분리 규칙).
+// 규칙: 1학기 - 1학년 단독 / 2·3학년 통합. 2학기 - K,L 블록은 1·2학년 무학년 통합, 나머지는 학년별 분리, 3학년은 기말만 별도.
+// 과목명이 같으면 블록·개인 학년에 상관없이 먼저 하나로 합친 뒤(실제 학교 시간표도 이렇게 한다 —
+// 예: "AP 통계학 I"이 D1,D2 블록(2학년)과 K블록(1,2학년) 양쪽에 걸쳐 있어도 같은 시간·같은 강의실
+// 하나로 합쳐서 운영됨), 합쳐진 뒤의 "실제 수강 학년 구성"을 보고서야 시험군(1학년 단독/2·3학년
+// 통합/2학기 K·L 통합 등)을 정한다. 이렇게 해야 "1,2학년 통합"으로 개설된 과목이 학년별로
+// 쪼개져 다른 시간에 배정되는 일이 없다.
+function classifyExamGroup(grades, blocks, semester, examType){
+  const g = new Set(grades);
+  const blockSet = new Set([...blocks].map(b=>String(b).toUpperCase()));
+  const hasKL = blockSet.has('K') || blockSet.has('L');
+  if(semester==='1'){
+    // 1학년만 있으면 1학년 단독, 그 외(2·3학년만이거나 1학년이 다른 학년과 실제로 섞여 있으면)는 2·3학년 통합군으로.
+    return (g.has(1) && g.size===1) ? 'G1' : 'G23';
+  }
+  if(hasKL || (g.has(1) && g.has(2))) return 'G12_KL'; // K/L 블록이거나 실제로 1·2학년이 섞여 있으면 통합
+  if(g.has(3)) return examType==='기말' ? 'G3' : null; // 3학년 2학기는 기말만
+  return g.has(1) ? 'G1_SOLO' : 'G2_SOLO';
+}
+function buildGenModel(rows, grades, semester, examType, adminClassMap){
+  adminClassMap = adminClassMap || new Map();
+  const subjectsMap = {}; const students = {}; const teacherSet = new Set();
+  rows.forEach(r=>{
+    if(!grades.includes(r.grade)) return;
+    if(semester==='2' && r.grade===3 && examType!=='기말') return; // 3학년 2학기는 기말만 실시
+    teacherSet.add(r.teacher||'미지정');
+    const key = r.subject; // 학년·블록에 상관없이 과목명 기준으로 우선 병합
+    if(!subjectsMap[key]){
+      subjectsMap[key] = { id: uid('sub'), subject:r.subject, grades:new Set(), blocks:new Set(), teachers:new Set(), unit:r.unit, students:new Set() };
+    }
+    const s = subjectsMap[key];
+    s.grades.add(r.grade); if(r.block) s.blocks.add(r.block); s.teachers.add(r.teacher||'미지정');
+    const sid = r.sid || (r.name+'_'+r.grade);
+    s.students.add(sid);
+    // 행정반은 개별현황 시트 자체의 컬럼(있으면)을 최우선으로 쓰고, 없으면 별도 "OO학년 행정반" 시트 매핑을 쓴다.
+    if(!students[sid]) students[sid] = {id:sid, name:r.name||sid, grade:r.grade, subjectIds:new Set(),
+      adminClass: (r.adminClass!=null) ? r.adminClass : (adminClassMap.has(r.name) ? adminClassMap.get(r.name) : null)};
+    students[sid].subjectIds.add(s.id);
+  });
+  // "전원이 반드시 하나를 선택해야 하는 블록"(예: 1학년 I2)은 공통과목처럼 한 교시에 몰아서 배정한다.
+  // 학교마다/학기마다 다를 수 있어 블록 코드를 직접 지정한다(자동으로 "수강 커버리지"를 추정하면
+  // 원래 서로 다른 시간에 배정돼야 할 일반 선택 블록까지 잘못 묶여 시간표가 깨지는 사고가 있었음).
+  const MANDATORY_PICKONE_BLOCKS = ['I2'];
+  const subjects = Object.values(subjectsMap).map(s=>{
+    const examGroup = classifyExamGroup(s.grades, s.blocks, semester, examType);
+    if(!examGroup) return null;
+    const mandatoryBlockKey = [...s.blocks].find(b=>MANDATORY_PICKONE_BLOCKS.includes(String(b).toUpperCase()));
+    const isG1Solo = examGroup==='G1' || examGroup==='G1_SOLO';
+    return {
+      ...s, examGroup, count:s.students.size,
+      gradeLabel: [...s.grades].sort().join('·'),
+      grade: Math.min(...s.grades), // 정렬/필터용 대표 학년(가장 낮은 학년)
+      block: [...s.blocks].sort().join(','),
+      teacher: [...s.teachers].join(', '),
+      family: classifySubjectFamily(s.subject),
+      isCommonG1: isG1Solo && COMMON_SUBJECTS_G1.some(x=>s.subject.includes(x)),
+      isForeignG1: isG1Solo && FOREIGN_LANG_G1.some(x=>s.subject.includes(x)),
+      isMandatoryBundle: !!mandatoryBlockKey && isG1Solo,
+      mandatoryBlockKey: mandatoryBlockKey || null,
+    };
+  }).filter(Boolean);
+  return {subjects, students, teachers:[...teacherSet].sort()};
+}
+// 같은 계열(수학/역사/과학/사회 등) 과목을 하루에 몰아 배정하지 않기 위한 느슨한 분류.
+const SUBJECT_FAMILIES = [
+  {name:'math', keywords:['대수','미적분','기하','확률과 통계','미적분학','Calculus','Algebra','Precalculus']},
+  {name:'history', keywords:['한국사','미국사','세계사','동아시아사','History']},
+  {name:'science', keywords:['물리','화학','생명과학','생물학','지구과학','Physics','Chemistry','Biology','Earth Science']},
+  {name:'social', keywords:['정치','경제','사회문화','사회·문화','법과 사회','지리','세계시민','Government','Economics','Psychology']},
+];
+function classifySubjectFamily(name){
+  for(const fam of SUBJECT_FAMILIES){ if(fam.keywords.some(k=>name.includes(k))) return fam.name; }
+  return null;
+}
+function buildGenNodes(subjectsIn){
+  // 필수 선택 블록(예: 1학년 I2)에 제2외국어 과목이 섞여 있으면, 그 블록 전체를 하나로 묶는다
+  // (제2외국어 개별 묶음으로 따로 떼어내지 않음 — 실제로 같은 교시·강의실에서 함께 치러짐).
+  const mandatory = subjectsIn.filter(s=>s.isMandatoryBundle);
+  const foreign = subjectsIn.filter(s=>s.isForeignG1 && !s.isMandatoryBundle);
+  const normal = subjectsIn.filter(s=>!s.isForeignG1 && !s.isMandatoryBundle);
+  const nodes = normal.map(s=>({type:'single', subj:s, students:s.students, totalCount:s.count, isBig: s.count>100}));
+  if(foreign.length){
+    const unionStudents = new Set(); foreign.forEach(f=>f.students.forEach(x=>unionStudents.add(x)));
+    nodes.push({type:'bundle', subjs:foreign, students:unionStudents, totalCount:unionStudents.size, isBig:true});
+  }
+  // "전원이 하나를 선택해야 하는 블록"(예: 1학년 I2) — 공통과목처럼 한 교시에 몰아서 배정
+  if(mandatory.length){
+    const byBlock = {};
+    mandatory.forEach(s=>{ (byBlock[s.mandatoryBlockKey] = byBlock[s.mandatoryBlockKey]||[]).push(s); });
+    Object.values(byBlock).forEach(group=>{
+      const unionStudents = new Set(); group.forEach(s=>s.students.forEach(x=>unionStudents.add(x)));
+      nodes.push({type:'bundle', subjs:group, students:unionStudents, totalCount:unionStudents.size, isBig:true, isMandatory:true});
+    });
+  }
+  return nodes;
+}
+// C-강의실(35명x4) 빈패킹 가능 여부. dAvailable=true면 남는 D룸(80명x2)도 여유 공간으로 활용(대형 과목이 그 교시를 쓰지 않을 때만).
+// 일반 규모 과목은 실제 학교 사례처럼 행정반 단위로 여러 강의실에 나눠 앉힐 수 있다고 보고,
+// 교시별 "가용 좌석 총합"만 검사한다 (C-룸 4개=140석, 대형과목이 없을 때는 D룸 2개=160석 추가로 가용).
+function canFitNormals(existing, extra, dAvailable){
+  const sum = existing.reduce((a,b)=>a+b,0) + extra;
+  const cap = 4*35 + (dAvailable ? 2*80 : 0);
+  return sum <= cap;
+}
+// 모든 시험군(examGroup)을 한 번에 스케줄링 — 학생 충돌뿐 아니라 강의실 용량까지 배정 시점에 검증해
+// "일단 배치 후 충돌 표시"가 아니라 애초에 충돌 없는 시간표가 나오도록 한다.
+function scheduleAllGen(groupIds, subjectsByGroup, days, maxPerDay){
+  maxPerDay = maxPerDay || 3;
+  let allNodes = [];
+  groupIds.forEach(gid=>{ allNodes = allNodes.concat(buildGenNodes(subjectsByGroup[gid])); });
+  allNodes.forEach(n=>{ n.conflicts=new Set(); });
+  for(let i=0;i<allNodes.length;i++) for(let j=i+1;j<allNodes.length;j++){
+    if(setsShareMember(allNodes[i].students, allNodes[j].students)){ allNodes[i].conflicts.add(j); allNodes[j].conflicts.add(i); }
+  }
+  // 진짜 공통과목뿐 아니라, "전원이 하나를 골라야 하는 필수 선택 블록" 묶음도 같은 우선순위(1교시 고정)로 취급한다.
+  const isCommonNode = n => (n.type==='single' && n.subj.isCommonG1) || n.isMandatory;
+  const order = allNodes.map((n,i)=>i).sort((a,b)=>{
+    // 1학년 전체가 함께 보는 공통과목(1교시·D-1/D-2 고정)을 최우선 배정해 1교시 슬롯을 먼저 확보
+    const ca=isCommonNode(allNodes[a]), cb=isCommonNode(allNodes[b]);
+    if(ca!==cb) return ca?-1:1;
+    const d = allNodes[b].conflicts.size - allNodes[a].conflicts.size;
+    if(d!==0) return d;
+    return allNodes[b].totalCount - allNodes[a].totalCount;
+  });
+  const slots = []; days.forEach(day=> PERIODS.forEach(p=> slots.push({day, period:p.no})));
+  const period1Only = slots.filter(s=>s.period===1);
+  const period1Or2 = slots.filter(s=>s.period===1||s.period===2);
+  const slotAssign = {}; const roomState = {};
+  slots.forEach(s=>{ const k=`${s.day}_${s.period}`; slotAssign[k]=[]; roomState[k]={big:null, normals:[]}; });
+  const studentDayCount = {}; const studentDayCommonUsed = {}; const conflictsUnplaced = [];
+  function canPlaceRoom(node, key){
+    const st = roomState[key];
+    if(node.isBig) return !st.big && canFitNormals(st.normals, 0, false); // D룸이 온전히 비어있어야 대형과목(D-1/D-2 전용) 배치 가능
+    return canFitNormals(st.normals, node.totalCount, !st.big);
+  }
+  function commitRoom(node, key){
+    const st = roomState[key];
+    if(node.isBig) st.big = node; else st.normals.push(node.totalCount);
+  }
+  function canPlace(node, key, day){
+    const occ = slotAssign[key];
+    for(const oi of occ){ if(node.conflicts.has(oi)) return false; }
+    for(const sid of node.students){ const cnt=(studentDayCount[sid]||{})[day]||0; if(cnt>=maxPerDay) return false; }
+    return canPlaceRoom(node, key);
+  }
+  const dayFamilyUsed = {}; // day -> Set(family) : 같은 계열 과목을 하루에 몰아 배정하지 않기 위한 소프트 제약
+  function softScore(node, slot){
+    let score=0;
+    const isCommon = isCommonNode(node);
+    if(isCommon){
+      let clash=false;
+      for(const sid of node.students){ if((studentDayCommonUsed[sid]||new Set()).has(slot.day)){ clash=true; break; } }
+      if(clash) score-=100;
+    }
+    if(node.type==='single' && node.subj.family){
+      if((dayFamilyUsed[slot.day]||new Set()).has(node.subj.family)) score-=20; // 예: 대수·미적분을 같은 날에 두지 않도록
+    }
+    // 학생 부담 최소화 원칙: (1) 그 날 배정으로 "하루 최대 허용치"(예: 3과목)까지 채워지는 학생이 많을수록 감점,
+    // (2) 아직 그 날 시험이 하나도 없는 학생이 많이 채워질수록 소폭 가점(가능하면 하루 1과목이라도 고르게 분산).
+    if(node.students.size){
+      let hitsCapCount=0, zeroSoFarCount=0;
+      for(const sid of node.students){
+        const cnt = (studentDayCount[sid]||{})[slot.day]||0;
+        if(cnt+1>=maxPerDay) hitsCapCount++;
+        if(cnt===0) zeroSoFarCount++;
+      }
+      const n = node.students.size;
+      score -= (hitsCapCount/n) * 15;
+      score += (zeroSoFarCount/n) * 6;
+    }
+    score -= slot.period*0.1;
+    return score;
+  }
+  order.forEach(ni=>{
+    const node = allNodes[ni];
+    // 1학년 공통과목(150명 내외)은 원칙적으로 1교시 D-1/D-2로만 배정하고,
+    // 1교시 자리가 정말 부족할 때만 예외적으로 2교시까지 허용한다(3·4교시는 안 됨).
+    const isCommon = isCommonNode(node);
+    let candList = isCommon ? period1Only : slots;
+    let best=null, bestScore=-Infinity;
+    for(const slot of candList){
+      const key=`${slot.day}_${slot.period}`;
+      if(!canPlace(node,key,slot.day)) continue;
+      const sc = softScore(node, slot);
+      if(sc>bestScore){ bestScore=sc; best=slot; }
+    }
+    if(!best && isCommon){
+      for(const slot of period1Or2){
+        const key=`${slot.day}_${slot.period}`;
+        if(!canPlace(node,key,slot.day)) continue;
+        const sc = softScore(node, slot);
+        if(sc>bestScore){ bestScore=sc; best=slot; }
+      }
+    }
+    if(!best){ conflictsUnplaced.push(node); return; }
+    const key=`${best.day}_${best.period}`;
+    slotAssign[key].push(ni); commitRoom(node,key); node.slot=best;
+    if(node.type==='single' && node.subj.family){
+      dayFamilyUsed[best.day] = dayFamilyUsed[best.day] || new Set();
+      dayFamilyUsed[best.day].add(node.subj.family);
+    }
+    for(const sid of node.students){
+      studentDayCount[sid]=studentDayCount[sid]||{}; studentDayCount[sid][best.day]=(studentDayCount[sid][best.day]||0)+1;
+      if(isCommonNode(node)){ studentDayCommonUsed[sid]=studentDayCommonUsed[sid]||new Set(); studentDayCommonUsed[sid].add(best.day); }
+    }
+  });
+  const subjectSlot={};
+  allNodes.forEach(n=>{ if(n.type==='single'){ subjectSlot[n.subj.id]=n.slot||null; } else { n.subjs.forEach(s=>subjectSlot[s.id]=n.slot||null); } });
+  const unplacedSubjectIds = new Set();
+  conflictsUnplaced.forEach(n=>{ if(n.type==='single') unplacedSubjectIds.add(n.subj.id); else n.subjs.forEach(s=>unplacedSubjectIds.add(s.id)); });
+  return {subjectSlot, unplacedSubjectIds};
+}
+function assignGenRooms(subjectsBySlot, students, roomOverrides){
+  students = students || {}; roomOverrides = roomOverrides || {};
+  const roomAssign={}; const roomConflicts=[];
+  Object.entries(subjectsBySlot).forEach(([key,subsAll])=>{
+    if(!subsAll.length) return;
+    const rooms = ROOMS.map(r=>({...r, used:0, subjIds:[], items:[]})); // items: [{subjId, count, students}] - 강의실별 실제 인원/명단
+    const dRooms = rooms.filter(r=>r.big); const cRooms = rooms.filter(r=>!r.big);
+    // 분반이 필요할 때 행정반(1~5반, 6~10반 …) 순서대로 앞에서부터 채워지도록 학생을 정렬해둔다.
+    const studentQueue = {};
+    subsAll.forEach(s=>{
+      studentQueue[s.id] = [...s.students].sort((a,b)=>{
+        const ca = students[a]?.adminClass ?? 9999, cb = students[b]?.adminClass ?? 9999;
+        return ca-cb || String(a).localeCompare(String(b));
+      });
+    });
+    function place(room, s, count){
+      const taken = studentQueue[s.id].splice(0, count);
+      room.used+=count; room.items.push({subjId:s.id, count, gradeLabel:s.gradeLabel, grades:[...s.grades], students:taken}); if(!room.subjIds.includes(s.id)) room.subjIds.push(s.id);
+    }
+    // 한 강의실에 서로 다른 과목을 합반할 때, 한쪽 학년 구성이 다른 쪽의 부분집합이면(예: "1학년"+"1,2학년")
+    // 허용한다 — 완전히 다른 학년끼리만(1학년 vs 2학년) 섞이지 않도록 막는다.
+    function roomAcceptsGrade(r, s){ return r.items.length===0 || r.items.every(it=>gradesCompatible(it.grades, s.grades)); }
+    // 수동 배정(드래그로 강의실을 직접 지정한 과목)을 먼저 배치한다. 같은 교시에 배정된 과목끼리는
+    // 수강생이 겹치지 않는 것이 이미 보장되어 있으므로 학년은 따지지 않고 정원만 확인한다.
+    const pinned = new Set();
+    subsAll.forEach(s=>{
+      const pinRoomName = roomOverrides[s.id];
+      if(!pinRoomName) return;
+      const room = rooms.find(r=>r.name===pinRoomName);
+      if(!room) return;
+      if((room.cap-room.used)>=s.count){
+        place(room, s, s.count); pinned.add(s.id);
+      } else {
+        roomConflicts.push({key, reason:'수동 강의실 이동 실패(정원 초과)', subjIds:[s.id]});
+      }
+    });
+    const subs = subsAll.filter(s=>!pinned.has(s.id));
+    const big = subs.filter(s=> s.count>100 || s.isForeignG1);
+    const normal = subs.filter(s=> !(s.count>100 || s.isForeignG1));
+    if(big.length){
+      const totalStudents = new Set(); big.forEach(s=>s.students.forEach(x=>totalStudents.add(x)));
+      if(totalStudents.size > dRooms[0].cap+dRooms[1].cap+10) roomConflicts.push({key, reason:'D-1/D-2 정원 초과', subjIds:big.map(s=>s.id)});
+      // 과목 하나만으로 방 하나(80명)를 넘는 경우에만 그 과목을 두 방에 나눠 앉힌다.
+      // (예: 공통수학1 161명은 어쩔 수 없이 분반) 나머지는 통째로 남는 자리가 더 넓은 방에 배정한다.
+      // 예: 스페인어+프랑스어+중국어+한문처럼 여러 과목이 동시에 있으면 각각을 절반씩 쪼개지 않고
+      // 정원에 맞춰 "스페인어+프랑스어는 D-1, 중국어+한문은 D-2"처럼 과목 단위로 묶는다.
+      const used=[dRooms[0].used, dRooms[1].used]; // 수동 고정으로 이미 채워진 만큼은 여기서도 반영
+      const oversized = [...big].filter(s=>s.count>dRooms[0].cap).sort((a,b)=>b.count-a.count);
+      const packable = [...big].filter(s=>s.count<=dRooms[0].cap).sort((a,b)=>b.count-a.count);
+      oversized.forEach(s=>{
+        const take0 = Math.min(dRooms[0].cap-used[0], s.count);
+        if(take0>0){ place(dRooms[0], s, take0); used[0]+=take0; }
+        const take1 = s.count-take0;
+        if(take1>0){ place(dRooms[1], s, take1); used[1]+=take1; }
+      });
+      packable.forEach(s=>{
+        const rem0 = dRooms[0].cap-used[0], rem1 = dRooms[1].cap-used[1];
+        if(rem0>=s.count && rem0>=rem1){ place(dRooms[0], s, s.count); used[0]+=s.count; }
+        else if(rem1>=s.count){ place(dRooms[1], s, s.count); used[1]+=s.count; }
+        else if(rem0>=s.count){ place(dRooms[0], s, s.count); used[0]+=s.count; }
+        else{ // 두 방 다 온전히 못 들어가는 예외적 상황에서만 어쩔 수 없이 쪼갬
+          const take0=Math.max(0,rem0); if(take0>0){ place(dRooms[0], s, take0); used[0]+=take0; }
+          const take1=s.count-take0; place(dRooms[1], s, take1); used[1]+=take1;
+        }
+      });
+    }
+    // 정원(35명)을 넘는 일반 과목은 최대한 적은 수의 "빈 강의실"에 고르게 분반하고,
+    // 정원 이내 과목은 남는 자리에 정확히 들어갈 강의실을 찾아 배치한다(합반 시 실제 인원만 더해짐).
+    // D-1/D-2가 비어있으면(대형 과목이 그 교시를 쓰지 않으면) 우선적으로 채운다 — 한 강의실에 여러 과목 합반 가능.
+    const pool = big.length ? cRooms : [...dRooms, ...cRooms];
+    // 어떤 방이든 통째로 들어갈 수 있는 인원이면(가용 강의실 중 가장 큰 정원 기준) 굳이 분반하지 않는다.
+    const CCAP = Math.max(...pool.map(r=>r.cap));
+    const oversized = normal.filter(s=>s.count>CCAP).sort((a,b)=>b.count-a.count);
+    const fitsOne = normal.filter(s=>s.count<=CCAP).sort((a,b)=>b.count-a.count);
+    // 여러 강의실에 나눌 수밖에 없을 때는 "몫이 남는 방 하나 + 자투리"가 아니라
+    // 선택된 방들에 최대한 균등하게(예: 38명 -> 19/19) 나눠 앉힌다.
+    function splitEvenly(s, candidates){
+      let need=1, chosen=[];
+      while(need<=candidates.length){
+        chosen = candidates.slice(0,need);
+        if(chosen.reduce((a,r)=>a+(r.cap-r.used),0) >= s.count) break;
+        need++;
+      }
+      if(!chosen.length || chosen.reduce((a,r)=>a+(r.cap-r.used),0) < s.count) return false;
+      let remaining = s.count;
+      const share = Math.ceil(s.count/chosen.length);
+      chosen.forEach((r,i)=>{
+        const avail = r.cap-r.used;
+        const take = i===chosen.length-1 ? remaining : Math.min(avail, share, remaining);
+        if(take>0){ place(r,s,take); remaining-=take; }
+      });
+      return remaining<=0;
+    }
+    oversized.forEach(s=>{
+      const empties = pool.filter(r=>r.items.length===0).sort((a,b)=>(b.cap-b.used)-(a.cap-a.used));
+      if(!splitEvenly(s, empties)){
+        // 빈 강의실만으로 부족하면 남는 자리가 있는 "같은 학년" 강의실까지 포함해 다시 시도
+        const sameGrade = pool.filter(r=>roomAcceptsGrade(r,s)).sort((a,b)=>(b.cap-b.used)-(a.cap-a.used));
+        if(!splitEvenly(s, sameGrade)){
+          roomConflicts.push({key, reason:'강의실 정원 초과', subjIds:[s.id]});
+        }
+      }
+    });
+    // 한 강의실에 이미 서로 다른 과목이 2개 있는데 3번째 과목까지 합반해야 한다면,
+    // 정원 끝까지 채우지 않고 정원의 2/3 선까지만 채운다(시험 감독·관리 여유 확보). 그래도 자리가
+    // 부족하면(다른 방법이 없으면) 아래 splitEvenly의 전체 정원 기준 재시도로 자연스럽게 넘어간다.
+    function roomHeadroomFor(r, s){
+      const wouldBeThirdOrMore = r.items.length>=2 && !r.items.some(it=>it.subjId===s.id);
+      const cap = wouldBeThirdOrMore ? Math.floor(r.cap*2/3) : r.cap;
+      return cap - r.used;
+    }
+    fitsOne.forEach(s=>{
+      // 정원에 맞고(D룸이 비어있으면 우선) + 학년이 같은 과목만 합반된 첫 강의실에 배정
+      const candidates = pool.filter(r=>roomAcceptsGrade(r,s));
+      const first = candidates.find(r=>roomHeadroomFor(r,s)>=s.count);
+      if(first){ place(first, s, s.count); return; }
+      if(!splitEvenly(s, [...candidates].sort((a,b)=>(b.cap-b.used)-(a.cap-a.used)))){
+        roomConflicts.push({key, reason:'강의실 정원 초과 또는 같은 학년으로 묶일 빈 강의실 부족', subjIds:[s.id]});
+      }
+    });
+    roomAssign[key] = rooms.filter(r=>r.subjIds.length);
+  });
+  return {roomAssign, roomConflicts};
+}
+function assignGenProctors(roomAssign, subjectsMap, teachers){
+  const proctorAssign={}; const teacherUsedInSlot={}; let cursor=0;
+  Object.entries(roomAssign).forEach(([key,rooms])=>{
+    teacherUsedInSlot[key]=new Set(); proctorAssign[key]={};
+    rooms.forEach(r=>{
+      const need = r.big?2:1; const list=[];
+      const subjTeachers = r.subjIds.flatMap(id=>String(subjectsMap[id]?.teacher||'').split(',').map(t=>t.trim())).filter(Boolean);
+      for(const t of subjTeachers){ if(list.length>=need) break; if(!teacherUsedInSlot[key].has(t)){ list.push(t); teacherUsedInSlot[key].add(t); } }
+      let guard=0;
+      while(list.length<need && guard<teachers.length*2 && teachers.length){
+        const t = teachers[cursor%teachers.length]; cursor++; guard++;
+        if(!teacherUsedInSlot[key].has(t)){ list.push(t); teacherUsedInSlot[key].add(t); }
+      }
+      proctorAssign[key][r.name] = {teachers:list, short:list.length<need};
+    });
+  });
+  return proctorAssign;
+}
+function runGenPipeline(){
+  const semester = document.querySelector('input[name=genSem]:checked').value;
+  const examType = document.querySelector('input[name=genExamType]:checked').value;
+  const grades = [...document.querySelectorAll('.genGradeChk:checked')].map(c=>parseInt(c.value,10));
+  const startDate = document.getElementById('genStart').value;
+  const endDate = document.getElementById('genEnd').value;
+  const maxPerDay = parseInt(document.querySelector('input[name=genMaxPerDay]:checked').value,10) || 2;
+  if(!GEN_RAW_ROWS){ alert('수강신청 원자료 엑셀을 먼저 업로드해주세요.'); return; }
+  if(!startDate||!endDate){ alert('시험 기간을 선택해주세요.'); return; }
+  const days = businessDaysBetween(startDate, endDate).filter(d=>!genExcludedDates.has(d));
+  if(!days.length){ alert('선택한 기간에 남은 시험일이 없습니다. 제외 날짜를 확인해주세요.'); return; }
+  const {subjects, students, teachers} = buildGenModel(GEN_RAW_ROWS, grades, semester, examType, GEN_ADMIN_CLASS_MAP);
+  if(!subjects.length){ alert('선택한 학년에 해당하는 데이터가 없습니다.'); return; }
+  const grouped = subjects;
+  const groupIds = [...new Set(grouped.map(s=>s.examGroup))];
+  const subjectsByGroup = {}; groupIds.forEach(gid=> subjectsByGroup[gid] = grouped.filter(s=>s.examGroup===gid));
+  const schedRes = scheduleAllGen(groupIds, subjectsByGroup, days, maxPerDay);
+  const subjectSlot = schedRes.subjectSlot; const unplaced = schedRes.unplacedSubjectIds;
+  const subjectsMap={}; grouped.forEach(s=>subjectsMap[s.id]=s);
+  const subjectsBySlot={}; days.forEach(d=>PERIODS.forEach(p=>subjectsBySlot[`${d}_${p.no}`]=[]));
+  grouped.forEach(s=>{ const slot=subjectSlot[s.id]; if(!slot) return; subjectsBySlot[`${slot.day}_${slot.period}`].push(s); });
+  const {roomAssign, roomConflicts} = assignGenRooms(subjectsBySlot, students);
+  const proctorAssign = assignGenProctors(roomAssign, subjectsMap, teachers);
+  GENSTATE = { config:{semester,examType,grades,startDate,endDate,maxPerDay}, days, subjects:grouped, subjectsMap, students, teachers,
+    subjectSlot, unplaced, subjectsBySlot, roomAssign, roomConflicts, proctorAssign, manualOverrides:{}, manualRoomOverrides:{} };
+  document.getElementById('statusTag').textContent = `${semester}학기 ${examType}고사 · 과목 ${grouped.length}개`;
+  document.getElementById('genExportBtn').style.display = 'block';
+  renderGenStat(); renderGenAll();
+  if(unplaced.size){
+    const names = [...unplaced].map(id=>subjectsMap[id]?.subject).filter(Boolean).join(', ');
+    alert(`하루 최대 ${maxPerDay}과목 · ${days.length}일 조건으로는 ${unplaced.size}개 과목을 배정하지 못했습니다:\n${names}\n\n"충돌 · 수동 배정" 탭에서 확인하고, 왼쪽의 "학생 1일 최대 응시 과목 수"를 늘리거나 시험 기간을 늘려서 다시 생성해보세요.`);
+  }
+}
+// 학생별로 하루에 몇 과목까지 몰리는지 집계 (예: 3과목 허용 시 실제로 3과목을 보는 학생이 몇 명인지)
+function genDailyLoadStats(){
+  const perStudentDay = {}; // sid -> {day: count}
+  GENSTATE.subjects.forEach(s=>{
+    const slot = genEffectiveSlot(s.id); if(!slot) return;
+    s.students.forEach(sid=>{
+      perStudentDay[sid] = perStudentDay[sid] || {};
+      perStudentDay[sid][slot.day] = (perStudentDay[sid][slot.day]||0)+1;
+    });
+  });
+  const dist = {}; // 하루 최대 과목수 -> 그만큼 몰린 적 있는 학생 수
+  Object.values(perStudentDay).forEach(byDay=>{
+    const maxInAnyDay = Math.max(0, ...Object.values(byDay));
+    dist[maxInAnyDay] = (dist[maxInAnyDay]||0)+1;
+  });
+  return dist;
+}
+function renderGenStat(){
+  const box = document.getElementById('genStatBox');
+  const totalStudents = Object.keys(GENSTATE.students).length;
+  const dist = genDailyLoadStats();
+  const maxAllowed = GENSTATE.config.maxPerDay || 2;
+  const atMax = dist[maxAllowed] || 0;
+  const distLine = Object.keys(dist).sort().map(k=>`${k}과목 ${dist[k]}명`).join(' · ');
+  box.innerHTML = `<div>과목 수: ${GENSTATE.subjects.length}</div><div>학생 수: ${totalStudents}</div><div>교사 수: ${GENSTATE.teachers.length}</div>
+    <div>시험일: ${GENSTATE.days.length}일 (1일 최대 ${maxAllowed}과목)</div>
+    <div>하루 ${maxAllowed}과목을 보는 학생: <b>${atMax}명</b> (${totalStudents? Math.round(atMax/totalStudents*100):0}%)</div>
+    <div class="small">일별 최다 과목 분포: ${distLine||'-'}</div>
+    <div style="color:${GENSTATE.unplaced.size?'var(--bad)':'var(--good)'}">미배치 과목: ${GENSTATE.unplaced.size}</div>
+    <div style="color:${GENSTATE.roomConflicts.length?'var(--bad)':'var(--good)'}">강의실 초과: ${GENSTATE.roomConflicts.length}건</div>`;
+}
+let genCurrentDay = null;
+let genGradeFilter = 'all';
+function genEffectiveSlot(subjId){ return GENSTATE.manualOverrides[subjId] || GENSTATE.subjectSlot[subjId] || null; }
+function genRecomputeDerived(){
+  const subjectsBySlot={}; GENSTATE.days.forEach(d=>PERIODS.forEach(p=>subjectsBySlot[`${d}_${p.no}`]=[]));
+  GENSTATE.subjects.forEach(s=>{ const slot=genEffectiveSlot(s.id); if(!slot) return; subjectsBySlot[`${slot.day}_${slot.period}`].push(s); });
+  const {roomAssign, roomConflicts} = assignGenRooms(subjectsBySlot, GENSTATE.students, GENSTATE.manualRoomOverrides);
+  const proctorAssign = assignGenProctors(roomAssign, GENSTATE.subjectsMap, GENSTATE.teachers);
+  GENSTATE.subjectsBySlot=subjectsBySlot; GENSTATE.roomAssign=roomAssign; GENSTATE.roomConflicts=roomConflicts; GENSTATE.proctorAssign=proctorAssign;
+}
+function genStudentConflictSet(){
+  const bad=new Set(); const seen={};
+  GENSTATE.subjects.forEach(s=>{
+    const slot=genEffectiveSlot(s.id); if(!slot) return;
+    const key=`${slot.day}_${slot.period}`;
+    s.students.forEach(sid=>{ seen[sid]=seen[sid]||new Set(); if(seen[sid].has(key)) bad.add(s.id); seen[sid].add(key); });
+  });
+  return bad;
+}
+function renderGenAll(){ renderGenFull(); renderGenStudent(); renderGenDraft(); renderGenProctor(); }
+function renderGenFull(){
+  const pane = document.getElementById('genpane-full');
+  if(!genCurrentDay) genCurrentDay = GENSTATE.days[0];
+  const gradesPresent = [...new Set(GENSTATE.subjects.flatMap(s=>[...s.grades]))].sort();
+  let html = '<div class="daytabs" style="margin-bottom:4px;">' +
+    `<div class="daytab ${genGradeFilter==='all'?'active':''}" data-grade="all">전체 학년</div>` +
+    gradesPresent.map(g=>`<div class="daytab ${genGradeFilter===String(g)?'active':''}" data-grade="${g}">${g}학년</div>`).join('') +
+    '</div>';
+  html += '<div class="daytabs">' + GENSTATE.days.map(d=>`<div class="daytab ${d===genCurrentDay?'active':''}" data-day="${d}">${dayLabelFromDate(d)}</div>`).join('') + '</div>';
+  html += '<div style="overflow-x:auto;"><table class="grid"><thead><tr><th style="width:70px;">강의실</th>' + PERIODS.map(p=>`<th>${p.no}교시<br><span style="font-weight:400;">${p.time}</span></th>`).join('') + '</tr></thead><tbody>';
+  ROOMS.forEach(room=>{
+    html += `<tr><th>${room.name}<br><span style="font-weight:400;">${room.cap}명</span></th>`;
+    PERIODS.forEach(p=>{
+      const key=`${genCurrentDay}_${p.no}`; const roomsHere = GENSTATE.roomAssign[key]||[];
+      const match = roomsHere.find(r=>r.name===room.name);
+      html += '<td>';
+      if(match){
+        const subjIds = genGradeFilter==='all' ? match.subjIds : match.subjIds.filter(sid=>GENSTATE.subjectsMap[sid].grades.has(parseInt(genGradeFilter,10)));
+        html += subjIds.map(sid=>genPillHtml(sid, match, key)).join('');
+      }
+      html += '</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  pane.innerHTML = html;
+  pane.querySelectorAll('[data-grade]').forEach(el=> el.onclick = ()=>{ genGradeFilter=el.dataset.grade; renderGenFull(); });
+  pane.querySelectorAll('[data-day]').forEach(el=> el.onclick = ()=>{ genCurrentDay=el.dataset.day; renderGenFull(); });
+  bindGenPillClicks(pane);
+}
+// 강의실별 분반 인원을 정확히 표시하는 과목 카드 (클릭 시 명단 팝업)
+function genPillHtml(sid, room, slotKey){
+  const s = GENSTATE.subjectsMap[sid]; if(!s) return '';
+  const item = (room.items||[]).find(it=>it.subjId===sid);
+  const roomCount = item ? item.count : s.count;
+  const splitNote = roomCount!==s.count ? ` <span class="small">(전체 ${s.count}명 중 분반)</span>` : '';
+  return `<div class="pill" data-subj="${sid}" data-room="${room.name}" data-slotkey="${slotKey||''}" style="cursor:pointer;">` +
+    `<b>${s.subject}</b><small>${s.gradeLabel}학년 · ${s.teacher} · ${room.name} ${roomCount}명${splitNote}</small></div>`;
+}
+function bindGenPillClicks(pane){
+  pane.querySelectorAll('.pill[data-subj]').forEach(el=>{
+    el.addEventListener('click', ()=> openStudentRosterModal(el.dataset.subj, el.dataset.room, el.dataset.slotkey));
+  });
+}
+function renderGenStudent(){
+  const pane = document.getElementById('genpane-student');
+  pane.innerHTML = `<div class="searchbar"><input type="text" id="genStuSearch" placeholder="학번 또는 이름으로 검색"></div><div id="genStuResults"></div>`;
+  const input = document.getElementById('genStuSearch'); const resultsEl = document.getElementById('genStuResults');
+  input.oninput = ()=>{
+    const q = input.value.trim();
+    if(!q){ resultsEl.innerHTML='<div class="small">검색어를 입력하세요.</div>'; return; }
+    const matches = Object.values(GENSTATE.students).filter(s=>s.id.includes(q)||s.name.includes(q)).slice(0,20);
+    if(!matches.length){ resultsEl.innerHTML='<div class="small">일치하는 학생이 없습니다.</div>'; return; }
+    resultsEl.innerHTML = matches.map(renderGenStudentCard).join('');
+    resultsEl.querySelectorAll('[data-copy]').forEach(btn=>{
+      btn.onclick = ()=>{ navigator.clipboard.writeText(btn.dataset.copy).then(()=>{ btn.textContent='복사됨'; setTimeout(()=>btn.textContent='시간표 복사',1200); }).catch(()=>{ btn.textContent='복사 실패'; }); };
+    });
+  };
+}
+function renderGenStudentCard(stu){
+  const rows = [...stu.subjectIds].map(sid=>{
+    const s = GENSTATE.subjectsMap[sid]; if(!s) return null;
+    const slot = genEffectiveSlot(sid);
+    const roomKey = slot ? `${slot.day}_${slot.period}` : null;
+    let room='-';
+    if(roomKey){
+      // 과목이 여러 강의실로 분반된 경우, 이 학생이 실제로 배정된 강의실만 찾는다(두 방 다 표시하지 않음).
+      const rs=(GENSTATE.roomAssign[roomKey]||[]).filter(r=>(r.items||[]).some(it=>it.subjId===sid && it.students && it.students.includes(stu.id)));
+      room = rs.map(r=>r.name).join(', ') || (GENSTATE.roomAssign[roomKey]||[]).filter(r=>r.subjIds.includes(sid)).map(r=>r.name).join(', ') || '-';
+    }
+    return {s, slot, room};
+  }).filter(Boolean).sort((a,b)=>{ if(!a.slot) return 1; if(!b.slot) return -1; return a.slot.day.localeCompare(b.slot.day)||a.slot.period-b.slot.period; });
+  const copyText = `${stu.name} (${stu.id}) 시간표\n` + rows.map(r=>`${r.slot?dayLabelFromDate(r.slot.day)+' '+r.slot.period+'교시':'미배정'} | ${r.s.subject} | ${r.room}`).join('\n');
+  return `<div class="studentcard"><h3 style="font-size:1rem;">${stu.name} <span class="small">${stu.grade}학년 · 학번 ${stu.id}</span></h3>
+    <table><thead><tr><th>날짜</th><th>교시</th><th>과목</th><th>강의실</th></tr></thead><tbody>${rows.map(r=>`
+      <tr><td>${r.slot?dayLabelFromDate(r.slot.day):'<span class="badge bad">미배정</span>'}</td><td>${r.slot?r.slot.period+'교시':'-'}</td><td>${r.s.subject}</td><td>${r.room}</td></tr>`).join('')}</tbody></table>
+    <button class="ghost" style="margin-top:8px;" data-copy="${copyText.replace(/"/g,'&quot;')}">시간표 복사</button></div>`;
+}
+function renderGenDraft(){
+  const pane = document.getElementById('genpane-draft');
+  const conflictSet = genStudentConflictSet();
+  const trayIds = new Set([...GENSTATE.unplaced, ...conflictSet]);
+  GENSTATE.roomConflicts.forEach(rc=>rc.subjIds.forEach(id=>trayIds.add(id)));
+  let html = `<div class="legend"><span><span class="dot" style="background:var(--bad)"></span>학생 중복/미배치</span></div>`;
+  html += '<div class="small" style="margin-bottom:6px;">아래 트레이의 카드를 시간표 칸으로 드래그하면 수동으로 재배정됩니다.</div>';
+  html += `<div class="trayrow" id="genTray">`;
+  if(!trayIds.size) html += '<span class="small">충돌 없음 — 모든 과목이 정상 배정되었습니다.</span>';
+  html += [...trayIds].map(id=>{ const s=GENSTATE.subjectsMap[id]; if(!s) return ''; return `<div class="pill bad" draggable="true" data-subj="${id}"><b>${s.subject}</b><small>${s.gradeLabel}학년·${s.teacher}·${s.count}명</small></div>`; }).join('');
+  // (트레이 카드는 특정 강의실이 없으므로 클릭 시 전체 명단만 보여줌 — 바인딩은 아래 공통 처리에서)
+  html += `</div>`;
+  if(!genCurrentDay) genCurrentDay = GENSTATE.days[0];
+  html += '<div class="daytabs">' + GENSTATE.days.map(d=>`<div class="daytab ${d===genCurrentDay?'active':''}" data-day="${d}">${dayLabelFromDate(d)}</div>`).join('') + '</div>';
+  html += '<div style="overflow-x:auto;"><table class="grid"><thead><tr><th style="width:70px;">강의실</th>' + PERIODS.map(p=>`<th>${p.no}교시</th>`).join('') + '</tr></thead><tbody>';
+  ROOMS.forEach(room=>{
+    html += `<tr><th>${room.name}</th>`;
+    PERIODS.forEach(p=>{
+      const key=`${genCurrentDay}_${p.no}`; const roomsHere = GENSTATE.roomAssign[key]||[]; const match = roomsHere.find(r=>r.name===room.name);
+      html += `<td class="dropzone" data-day="${genCurrentDay}" data-period="${p.no}" data-room="${room.name}">`;
+      if(match){
+        html += match.subjIds.map(sid=>{
+          const s=GENSTATE.subjectsMap[sid]; const bad=trayIds.has(sid);
+          const item=(match.items||[]).find(it=>it.subjId===sid); const roomCount = item?item.count:s.count;
+          return `<div class="pill ${bad?'bad':''}" draggable="true" data-subj="${sid}" data-room="${room.name}" data-slotkey="${key}"><b>${s.subject}</b><small>${s.gradeLabel}학년·${room.name} ${roomCount}명</small></div>`;
+        }).join('');
+      }
+      html += `</td>`;
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  pane.innerHTML = html;
+  pane.querySelectorAll('.daytab').forEach(el=>{ el.onclick=()=>{ genCurrentDay=el.dataset.day; renderGenDraft(); }; });
+  pane.querySelectorAll('[draggable="true"]').forEach(el=>{ el.addEventListener('dragstart', ev=>ev.dataTransfer.setData('text/plain', el.dataset.subj)); });
+  bindGenPillClicks(pane);
+  pane.querySelectorAll('.dropzone').forEach(el=>{
+    el.addEventListener('dragover', ev=>{ ev.preventDefault(); el.classList.add('over'); });
+    el.addEventListener('dragleave', ()=>el.classList.remove('over'));
+    el.addEventListener('drop', ev=>{
+      ev.preventDefault(); el.classList.remove('over');
+      const subjId = ev.dataTransfer.getData('text/plain'); if(!subjId) return;
+      const targetDay = el.dataset.day, targetPeriod = parseInt(el.dataset.period,10), targetRoom = el.dataset.room;
+      const curSlot = genEffectiveSlot(subjId);
+      const samePeriod = curSlot && curSlot.day===targetDay && curSlot.period===targetPeriod;
+      if(samePeriod){
+        // 같은 교시에 이미 배정된 과목끼리는 수강생이 겹치지 않는 것이 스케줄링 단계에서 이미 보장되어 있으므로,
+        // 수동 이동은 학년에 상관없이 허용하고 "정원"만 확인한다.
+        const s = GENSTATE.subjectsMap[subjId];
+        const key = `${targetDay}_${targetPeriod}`;
+        const room = (GENSTATE.roomAssign[key]||[]).find(r=>r.name===targetRoom);
+        const alreadyThere = room ? (room.items||[]).find(it=>it.subjId===subjId) : null;
+        const currentUsed = room ? room.used - (alreadyThere?alreadyThere.count:0) : 0;
+        const cap = room ? room.cap : (ROOMS.find(r=>r.name===targetRoom)||{cap:0}).cap;
+        if(room && currentUsed + s.count > cap){
+          alert(`${targetRoom}의 정원(${cap}명)이 부족해 이동할 수 없습니다. (이미 ${currentUsed}명 + 이동할 ${s.count}명)`);
+          return;
+        }
+        // 옮긴 과목 하나만 움직이도록, 이 교시의 다른 과목들은 지금 있는 강의실에 그대로 고정한다
+        // (자동 재배치가 관계없는 과목까지 임의로 옮기지 않게). 여러 방에 걸쳐 분반된 과목은 하나의
+        // 방으로 고정할 수 없으니 건드리지 않고 자동 배정에 맡긴다.
+        const subjRoomCount = {};
+        (GENSTATE.roomAssign[key]||[]).forEach(r=> r.subjIds.forEach(id=> subjRoomCount[id]=(subjRoomCount[id]||0)+1));
+        (GENSTATE.roomAssign[key]||[]).forEach(r=>{
+          r.subjIds.forEach(otherId=>{
+            if(otherId===subjId) return;
+            if(subjRoomCount[otherId]>1) return; // 분반된 과목은 제외
+            if(!GENSTATE.manualRoomOverrides[otherId]) GENSTATE.manualRoomOverrides[otherId] = r.name;
+          });
+        });
+        GENSTATE.manualOverrides[subjId] = {day:targetDay, period:targetPeriod};
+        GENSTATE.manualRoomOverrides[subjId] = targetRoom;
+      } else {
+        // 교시 자체를 옮기는 경우 — 그 시간에 이미 배정된 과목과 수강생이 겹치면 이동을 막는다.
+        const s = GENSTATE.subjectsMap[subjId];
+        const clashes = [];
+        GENSTATE.subjects.forEach(other=>{
+          if(other.id===subjId) return;
+          const slot = genEffectiveSlot(other.id);
+          if(!slot || slot.day!==targetDay || slot.period!==targetPeriod) return;
+          const shared = [...s.students].filter(sid=>other.students.has(sid));
+          if(shared.length) clashes.push({subject: other.subject, count: shared.length});
+        });
+        if(clashes.length){
+          const detail = clashes.map(c=>`- ${c.subject} (겹치는 학생 ${c.count}명)`).join('\n');
+          alert(`이동할 수 없습니다. 그 시간에 이미 배정된 다음 과목과 수강생이 겹칩니다:\n${detail}`);
+          return;
+        }
+        // 예전 강의실 고정은 의미가 없으니 풀고, 새 교시에서 자동 배정에 맡긴다.
+        GENSTATE.manualOverrides[subjId] = {day:targetDay, period:targetPeriod};
+        delete GENSTATE.manualRoomOverrides[subjId];
+      }
+      genRecomputeDerived(); renderGenStat(); renderGenAll();
+    });
+  });
+}
+function renderGenProctor(){
+  const pane = document.getElementById('genpane-proctor');
+  if(!genCurrentDay) genCurrentDay = GENSTATE.days[0];
+  let html = '<div class="daytabs">' + GENSTATE.days.map(d=>`<div class="daytab ${d===genCurrentDay?'active':''}" data-day="${d}">${dayLabelFromDate(d)}</div>`).join('') + '</div>';
+  html += '<div style="overflow-x:auto;"><table class="grid"><thead><tr><th style="width:70px;">강의실</th>' + PERIODS.map(p=>`<th>${p.no}교시</th>`).join('') + '</tr></thead><tbody>';
+  ROOMS.forEach(room=>{
+    html += `<tr><th>${room.name}</th>`;
+    PERIODS.forEach(p=>{
+      const key=`${genCurrentDay}_${p.no}`; const pa=(GENSTATE.proctorAssign[key]||{})[room.name];
+      html += '<td>';
+      if(pa) html += `<div class="pill ${pa.short?'bad':''}">${pa.teachers.join(', ')||'-'}</div>` + (pa.short?'<span class="badge bad">인원 부족</span>':'');
+      html += '</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  pane.innerHTML = html;
+  pane.querySelectorAll('.daytab').forEach(el=>{ el.onclick=()=>{ genCurrentDay=el.dataset.day; renderGenProctor(); }; });
+}
+function exportGenSchedule(){
+  if(!GENSTATE) return;
+  const header = ['날짜','교시','과목','담당교사','블록','단위','시험시간','진행교사(강의실)','인원'];
+  const aoa = [['생성된 시험 시간표'],[],header];
+  GENSTATE.days.forEach(day=>{
+    let dayPrinted=false;
+    PERIODS.forEach(p=>{
+      const key=`${day}_${p.no}`; const rooms = GENSTATE.roomAssign[key]||[];
+      if(!rooms.length) return;
+      const subjIds = [...new Set(rooms.flatMap(r=>r.subjIds))];
+      subjIds.forEach((sid,i)=>{
+        const s = GENSTATE.subjectsMap[sid];
+        const roomsForSubj = rooms.filter(r=>r.subjIds.includes(sid));
+        const proctorTxt = roomsForSubj.map(r=>{
+          const pa = (GENSTATE.proctorAssign[key]||{})[r.name];
+          return `${r.name}: ${pa?pa.teachers.join(', '):''}`;
+        }).join(' / ');
+        aoa.push([ (!dayPrinted&&i===0)?dayLabelFromDate(day):'', i===0?p.no:'', s.subject, s.teacher, s.block, s.unit,
+          i===0?p.time:'', proctorTxt, s.count ]);
+      });
+      dayPrinted = true;
+    });
+  });
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '생성된시간표'.slice(0,28));
+  XLSX.writeFile(wb, `생성된_시험시간표.xlsx`);
+}
+
+/* ================= 모드 전환 + 파일 자동 감지 ================= */
+document.querySelectorAll('.genpane').forEach(()=>{});
+document.querySelectorAll('[data-genpane]').forEach(t=>{
+  t.onclick = ()=>{
+    const parentTabs = t.closest('.tabs');
+    parentTabs.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.genpane').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');
+    document.getElementById('genpane-'+t.dataset.genpane).classList.add('active');
+  };
+});
+function setMode(mode){
+  document.querySelectorAll('.modetab').forEach(t=> t.classList.toggle('active', t.dataset.mode===mode));
+  document.getElementById('modeGenerate').style.display = mode==='generate' ? 'grid' : 'none';
+  document.getElementById('modeOptimize').style.display = mode==='optimize' ? 'grid' : 'none';
+}
+document.querySelectorAll('.modetab').forEach(t=> t.onclick = ()=> setMode(t.dataset.mode));
+
+function detectWorkbookType(wb){
+  if(wb.SheetNames.some(n=>n.includes('개별현황'))) return 'raw';
+  if(wb.SheetNames.some(n=>/시간표/.test(n))) return 'timetable';
+  return 'unknown';
+}
+function handleGenFile(file){
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    try{
+      const wb = XLSX.read(ev.target.result, {type:'array'});
+      const type = detectWorkbookType(wb);
+      if(type==='timetable'){
+        setMode('optimize'); handleFile(file); return;
+      }
+      GEN_RAW_ROWS = parseEnrollmentWorkbook(wb);
+      if(!GEN_RAW_ROWS || !GEN_RAW_ROWS.length){
+        alert('개별현황 시트(학년/과목명/단위/블록/담당교사/성명/학번/수강생 컬럼)를 찾지 못했습니다.');
+        return;
+      }
+      GEN_ADMIN_CLASS_MAP = parseAdminClassSheets(wb);
+      document.getElementById('genFileBtn').classList.add('has');
+      const inferNote = GEN_RAW_ROWS._inferredCount ? ` · 학번으로 학년 보정 ${GEN_RAW_ROWS._inferredCount}건` : '';
+      const adminNote = GEN_ADMIN_CLASS_MAP.size ? ` · 행정반 정보 ${GEN_ADMIN_CLASS_MAP.size}명` : '';
+      document.getElementById('genFileBtn').innerHTML = `✓ ${file.name} (${GEN_RAW_ROWS.length}행 파싱됨${inferNote}${adminNote})`;
+      document.getElementById('genRunBtn').disabled = false;
+    }catch(err){ alert('엑셀 파싱 중 오류: '+err.message); console.error(err); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+const genFileBtn = document.getElementById('genFileBtn');
+const genFileInput = document.getElementById('genFileInput');
+genFileBtn.onclick = ()=> genFileInput.click();
+genFileBtn.addEventListener('dragover', e=>e.preventDefault());
+genFileBtn.addEventListener('drop', e=>{ e.preventDefault(); const f=e.dataTransfer.files[0]; if(f) handleGenFile(f); });
+genFileInput.onchange = ()=>{ if(genFileInput.files[0]) handleGenFile(genFileInput.files[0]); };
+document.getElementById('genRunBtn').onclick = ()=>{ genCurrentDay=null; try{ runGenPipeline(); }catch(err){ alert('시간표 생성 중 오류: '+err.message); console.error(err); } };
+document.getElementById('resetBtn').onclick = ()=>{
+  if(confirm('처음부터 다시 시작할까요? 지금까지 업로드한 파일과 생성된 시간표가 모두 사라집니다.')){
+    location.reload();
+  }
+};
+document.getElementById('genExportBtn').onclick = exportGenSchedule;
+
+// 최적화 모드 업로더도 원자료 파일이 들어오면 생성 모드로 자동 전환
+fileBtn.addEventListener('drop', e=>{}, true); // no-op placeholder to keep listener order stable
+const _origHandleFile = handleFile;
+handleFile = function(file){
+  const reader = new FileReader();
+  reader.onload = ev=>{
+    try{
+      const wb = XLSX.read(ev.target.result, {type:'array'});
+      const type = detectWorkbookType(wb);
+      if(type==='raw'){ setMode('generate'); handleGenFile(file); return; }
+    }catch(e){ /* fall through to original handling for a clearer error */ }
+    _origHandleFile(file);
+  };
+  reader.readAsArrayBuffer(file);
+};
+
+/* ================= 학생 명단 팝업 ================= */
+function openStudentRosterModal(subjId, roomName, slotKey){
+  const s = GENSTATE.subjectsMap[subjId]; if(!s) return;
+  const title = document.getElementById('rosterTitle');
+  const body = document.getElementById('rosterBody');
+  title.textContent = `${s.subject} (${s.gradeLabel}학년) · ${s.teacher}`;
+  // 강의실이 분반된 경우 그 강의실에 실제 배정된 학생만 보여준다(과목 전체 수강생이 아니라).
+  let roomItem = null;
+  if(roomName && slotKey){
+    const room = (GENSTATE.roomAssign[slotKey]||[]).find(r=>r.name===roomName);
+    roomItem = room ? (room.items||[]).find(it=>it.subjId===subjId) : null;
+  }
+  const idsToShow = (roomItem && roomItem.students) ? roomItem.students : [...s.students];
+  const list = idsToShow.map(sid=>GENSTATE.students[sid]).filter(Boolean)
+    .sort((a,b)=> a.grade-b.grade || a.name.localeCompare(b.name,'ko'));
+  const roomLine = roomItem ? `<div class="small" style="margin-bottom:8px;">${roomName} 배정 인원: <b>${roomItem.count}명</b> (과목 전체 수강생: ${s.count}명 중 이 강의실 분반)</div>` : `<div class="small" style="margin-bottom:8px;">전체 수강생: <b>${s.count}명</b></div>`;
+  body.innerHTML = roomLine + `<table class="rosterlist"><thead><tr><th>#</th><th>학년</th><th>이름</th><th>학번</th></tr></thead><tbody>` +
+    list.map((st,i)=>`<tr><td>${i+1}</td><td>${st.grade}</td><td>${st.name}</td><td>${st.id}</td></tr>`).join('') +
+    `</tbody></table>`;
+  document.getElementById('rosterModalBg').hidden = false;
+}
+document.getElementById('rosterCloseBtn').onclick = ()=>{ document.getElementById('rosterModalBg').hidden = true; };
+document.getElementById('rosterModalBg').addEventListener('click', ev=>{ if(ev.target.id==='rosterModalBg') ev.currentTarget.hidden = true; });
+</script>
+</body>
+</html>
