@@ -11,13 +11,13 @@
   --bg:#dbe5f3; --panel:#ffffff; --ink:#0f2038; --sub:#4d6688; --line:#c1d1e6;
   --accent:#123a68; --accent-ink:#ffffff; --good:#2e7d5b; --warn:#b8862b; --bad:#b23a3a;
   --grid:#cedeef; --chip:#d3e1f1; --font-display:'Space Grotesk',sans-serif; --font-body:'Noto Sans KR',sans-serif; --font-mono:'JetBrains Mono',monospace;
-  --bg-grad-a:#b9d0ef; --bg-grad-b:#e7eefa;
+  --bg-grad-a:#b9d0ef; --bg-grad-b:#e7eefa; --line-strong:#9db3d4;
   color-scheme:light;
 }
 @media (prefers-color-scheme: dark){
   :root{ --bg:#0a1422; --panel:#101d30; --ink:#e6edf7; --sub:#87a0c2; --line:#213554;
     --grid:#132443; --chip:#132443; --accent:#3f7fc4; --accent-ink:#061119; --good:#6fae7d; --warn:#dba64f; --bad:#e0714f;
-    --bg-grad-a:#050b14; --bg-grad-b:#142a4a;
+    --bg-grad-a:#050b14; --bg-grad-b:#142a4a; --line-strong:#3d5c86;
     color-scheme:dark; }
 }
 *{box-sizing:border-box;}
@@ -52,25 +52,25 @@ button.ghost:hover{border-color:var(--accent);color:var(--accent);}
 .tab.active{color:var(--accent);border-color:var(--accent);}
 .tabpane{display:none;}
 .tabpane.active{display:block;}
-.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.05);background:var(--panel);}
+.tablewrap{overflow-x:auto;border:1.5px solid var(--line-strong);border-radius:14px;box-shadow:0 4px 16px rgba(10,30,60,.12);background:var(--panel);}
 table.grid{border-collapse:separate;border-spacing:0;width:100%;font-size:.76rem;table-layout:fixed;}
-table.grid th,table.grid td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:7px;vertical-align:top;}
+table.grid th,table.grid td{border-bottom:1.5px solid var(--line-strong);border-right:1.5px solid var(--line-strong);padding:7px;vertical-align:top;}
 table.grid th:first-child,table.grid td:first-child{border-left:none;}
 table.grid tr:last-child th,table.grid tr:last-child td{border-bottom:none;}
 table.grid tr th:last-child,table.grid tr td:last-child{border-right:none;}
-table.grid thead th{background:var(--grid);font-weight:700;font-size:.7rem;text-align:center;color:var(--sub);letter-spacing:.02em;text-transform:uppercase;border-top:none;}
+table.grid thead th{background:var(--accent);font-weight:700;font-size:.7rem;text-align:center;color:var(--accent-ink);letter-spacing:.02em;text-transform:uppercase;border-top:none;border-color:var(--accent);}
 table.grid thead th:first-child{border-top-left-radius:13px;text-transform:none;font-family:var(--font-display);letter-spacing:0;}
 table.grid thead th:last-child{border-top-right-radius:13px;}
 table.grid .pno{display:block;font-family:var(--font-display);font-weight:700;font-size:.8rem;color:var(--ink);}
 table.grid .ptime{display:block;font-family:var(--font-mono);font-size:.6rem;color:var(--sub);margin-top:1px;}
-table.grid .roomcol{width:78px;background:var(--grid);text-align:left;}
+table.grid .roomcol{width:78px;background:var(--grid);text-align:left;border-right:2px solid var(--line-strong);}
 table.grid .roomname{display:block;font-family:var(--font-display);font-weight:700;font-size:.82rem;color:var(--ink);}
-table.grid .roomcap{display:inline-block;font-family:var(--font-mono);font-size:.6rem;color:var(--sub);margin-top:3px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:1px 6px;}
+table.grid .roomcap{display:inline-block;font-family:var(--font-mono);font-size:.6rem;color:var(--sub);margin-top:3px;background:var(--panel);border:1px solid var(--line-strong);border-radius:20px;padding:1px 6px;}
 table.grid .roomcol-big .roomname{color:var(--accent);}
-table.grid tbody tr:nth-child(even) td{background:color-mix(in srgb, var(--bg) 100%, var(--ink) 2.5%);}
-table.grid td{height:80px;background:var(--bg);}
+table.grid tbody tr:nth-child(even) td{background:var(--grid);}
+table.grid td{height:80px;background:var(--panel);}
 table.grid tbody tr:last-child th:first-child{border-bottom-left-radius:13px;}
-table.grid tr:hover td{background:color-mix(in srgb, var(--bg) 92%, var(--accent) 8%);}
+table.grid tr:hover td{background:color-mix(in srgb, var(--panel) 88%, var(--accent) 12%);}
 .block{background:var(--chip);border-radius:8px;padding:6px 8px;font-size:.72rem;line-height:1.4;margin-bottom:4px;cursor:grab;}
 .block b{font-weight:700;}
 .block small{display:block;color:var(--sub);font-family:var(--font-mono);font-size:.63rem;}
@@ -104,7 +104,7 @@ table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8p
 .daytabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
 .daytab{font-family:var(--font-mono);font-size:.72rem;padding:5px 9px;border:1px solid var(--line);border-radius:7px;cursor:pointer;color:var(--sub);}
 .daytab.active{background:var(--ink);color:var(--bg);border-color:var(--ink);}
-.pill{background:var(--panel);border-radius:8px;padding:6px 9px 7px;font-size:.72rem;line-height:1.35;cursor:grab;border:1px solid var(--line);border-left:3px solid var(--accent);margin-bottom:5px;box-shadow:0 1px 2px rgba(0,0,0,.06);transition:box-shadow .12s, transform .12s;}
+.pill{background:var(--panel);border-radius:8px;padding:6px 9px 7px;font-size:.72rem;line-height:1.35;cursor:grab;border:1px solid var(--line-strong);border-left:3px solid var(--accent);margin-bottom:5px;box-shadow:0 1px 3px rgba(10,30,60,.1);transition:box-shadow .12s, transform .12s;}
 .pill:hover{box-shadow:0 3px 8px rgba(0,0,0,.1);transform:translateY(-1px);}
 .pill b{font-weight:700;display:block;margin-bottom:1px;color:var(--ink);}
 .pill small{color:var(--sub);display:block;font-family:var(--font-mono);font-size:.63rem;line-height:1.5;}
@@ -1329,9 +1329,8 @@ function genPillHtml(sid, room, slotKey){
   const s = GENSTATE.subjectsMap[sid]; if(!s) return '';
   const item = (room.items||[]).find(it=>it.subjId===sid);
   const roomCount = item ? item.count : s.count;
-  const splitNote = roomCount!==s.count ? ` <span class="small">(전체 ${s.count}명 중 분반)</span>` : '';
   return `<div class="pill" data-subj="${sid}" data-room="${room.name}" data-slotkey="${slotKey||''}" style="cursor:pointer;">` +
-    `<b>${subjectDisplayName(s)}</b><small>${s.gradeLabel}학년 · ${s.teacher} · ${room.name} ${roomCount}명${splitNote}</small></div>`;
+    `<b>${subjectDisplayName(s)}</b><small>${s.gradeLabel}학년 · ${s.teacher} · ${room.name} ${roomCount}명</small></div>`;
 }
 function bindGenPillClicks(pane){
   pane.querySelectorAll('.pill[data-subj]').forEach(el=>{
