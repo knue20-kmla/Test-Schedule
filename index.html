@@ -50,10 +50,12 @@ button.ghost:hover{border-color:var(--accent);color:var(--accent);}
 .tab.active{color:var(--accent);border-color:var(--accent);}
 .tabpane{display:none;}
 .tabpane.active{display:block;}
-table.grid{border-collapse:collapse;width:100%;font-size:.76rem;table-layout:fixed;}
-table.grid th,table.grid td{border:1px solid var(--line);padding:6px;vertical-align:top;}
-table.grid th{background:var(--grid);font-weight:700;font-size:.72rem;text-align:center;color:var(--sub);}
-table.grid td{height:78px;background:var(--panel);}
+table.grid{border-collapse:separate;border-spacing:0;width:100%;font-size:.76rem;table-layout:fixed;}
+table.grid th,table.grid td{border:1px solid var(--line);padding:7px;vertical-align:top;}
+table.grid th{background:var(--grid);font-weight:700;font-size:.7rem;text-align:center;color:var(--sub);letter-spacing:.02em;text-transform:uppercase;}
+table.grid th:first-child{text-transform:none;font-family:var(--font-display);letter-spacing:0;}
+table.grid td{height:80px;background:var(--bg);}
+table.grid tr:hover td{background:color-mix(in srgb, var(--bg) 92%, var(--accent) 8%);}
 .block{background:var(--chip);border-radius:8px;padding:6px 8px;font-size:.72rem;line-height:1.4;margin-bottom:4px;cursor:grab;}
 .block b{font-weight:700;}
 .block small{display:block;color:var(--sub);font-family:var(--font-mono);font-size:.63rem;}
@@ -77,8 +79,8 @@ table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8p
 .legend span{display:inline-flex;align-items:center;gap:5px;}
 .dot{width:8px;height:8px;border-radius:50%;display:inline-block;}
 .modetabs{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap;}
-.modetab{padding:8px 14px;border:1px solid var(--line);border-radius:20px;font-size:.82rem;font-weight:500;cursor:pointer;color:var(--sub);}
-.modetab.active{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+.modetab{padding:8px 14px;border:1px solid var(--line);border-radius:20px;font-size:.82rem;font-weight:600;cursor:pointer;color:var(--sub);background:var(--panel);transition:background .12s,color .12s,border-color .12s;}
+.modetab.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);}
 .rowgap{display:flex;gap:8px;flex-wrap:wrap;}
 .chk{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);padding:5px 9px;border-radius:8px;font-size:.8rem;cursor:pointer;user-select:none;}
 .chk input{accent-color:var(--accent);}
@@ -87,10 +89,11 @@ table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8p
 .daytabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;}
 .daytab{font-family:var(--font-mono);font-size:.72rem;padding:5px 9px;border:1px solid var(--line);border-radius:7px;cursor:pointer;color:var(--sub);}
 .daytab.active{background:var(--ink);color:var(--bg);border-color:var(--ink);}
-.pill{background:var(--chip);border-radius:7px;padding:3px 6px;font-size:.7rem;line-height:1.3;cursor:grab;border:1px solid transparent;margin-bottom:3px;}
-.pill b{font-weight:700;}
-.pill small{color:var(--sub);display:block;font-family:var(--font-mono);font-size:.62rem;}
-.pill.bad{border-color:var(--bad);}
+.pill{background:var(--panel);border-radius:8px;padding:6px 9px 7px;font-size:.72rem;line-height:1.35;cursor:grab;border:1px solid var(--line);border-left:3px solid var(--accent);margin-bottom:5px;box-shadow:0 1px 2px rgba(0,0,0,.06);transition:box-shadow .12s, transform .12s;}
+.pill:hover{box-shadow:0 3px 8px rgba(0,0,0,.1);transform:translateY(-1px);}
+.pill b{font-weight:700;display:block;margin-bottom:1px;color:var(--ink);}
+.pill small{color:var(--sub);display:block;font-family:var(--font-mono);font-size:.63rem;line-height:1.5;}
+.pill.bad{border-left-color:var(--bad);background:color-mix(in srgb, var(--bad) 7%, var(--panel));}
 .searchbar{display:flex;gap:8px;margin-bottom:14px;}
 .searchbar input{flex:1;padding:9px 11px;border:1px solid var(--line);border-radius:9px;background:var(--panel);color:var(--ink);}
 .studentcard{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:10px;}
@@ -1455,20 +1458,35 @@ function exportGenShareData(){
   URL.revokeObjectURL(url);
 }
 // 파일을 따로 올리지 않아도, 링크 자체에 시간표 데이터를 담아 바로 열리는 공유 링크를 만든다.
-function makeGenShareLink(){
+function toBase64Url(bytes){
+  let bin=''; bytes.forEach(b=> bin+=String.fromCharCode(b));
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+async function gzipCompress(str){
+  const stream = new Blob([str]).stream().pipeThrough(new CompressionStream('gzip'));
+  const buf = await new Response(stream).arrayBuffer();
+  return new Uint8Array(buf);
+}
+async function makeGenShareLink(){
   if(!GENSTATE) return;
   const data = buildShareData();
   const json = JSON.stringify(data);
-  const b64 = btoa(unescape(encodeURIComponent(json)));
   const base = location.href.replace(/[^/]*$/, ''); // 현재 페이지가 있는 폴더 경로
-  const url = base + 'view.html#d=' + b64;
+  let url;
+  if(window.CompressionStream){
+    // 링크 길이를 크게 줄이기 위해 gzip으로 압축한 뒤 담는다(보통 1/4~1/5 크기로 줄어듦).
+    const gz = await gzipCompress(json);
+    url = base + 'view.html#dz=' + toBase64Url(gz);
+  } else {
+    url = base + 'view.html#d=' + btoa(unescape(encodeURIComponent(json)));
+  }
   const box = document.getElementById('shareLinkBox');
   const input = document.getElementById('shareLinkInput');
   input.value = url;
   box.style.display = 'block';
   input.focus(); input.select();
   navigator.clipboard.writeText(url).then(()=>{
-    document.getElementById('shareLinkCopyState').textContent = '링크가 복사되었습니다. 학생들에게 그대로 보내주세요.';
+    document.getElementById('shareLinkCopyState').textContent = `링크가 복사되었습니다 (${url.length.toLocaleString()}자). 학생들에게 그대로 보내주세요.`;
   }).catch(()=>{
     document.getElementById('shareLinkCopyState').textContent = '위 링크를 직접 선택해서 복사해주세요.';
   });

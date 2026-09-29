@@ -24,18 +24,19 @@ h1,h2,h3{font-family:var(--font-display);font-weight:700;margin:0;}
 .top h1{font-size:1.3rem;}
 .small{font-size:.75rem;color:var(--sub);}
 .modetabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
-.modetab{padding:8px 16px;border:1px solid var(--line);border-radius:20px;font-size:.85rem;font-weight:500;cursor:pointer;color:var(--sub);}
-.modetab.active{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+.modetab{padding:8px 16px;border:1px solid var(--line);border-radius:20px;font-size:.85rem;font-weight:600;cursor:pointer;color:var(--sub);background:var(--panel);transition:background .12s,color .12s,border-color .12s;}
+.modetab.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);}
 .daytabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
-.daytab{font-family:var(--font-mono);font-size:.78rem;padding:6px 11px;border:1px solid var(--line);border-radius:7px;cursor:pointer;color:var(--sub);background:var(--panel);}
+.daytab{font-family:var(--font-mono);font-size:.78rem;padding:6px 12px;border:1px solid var(--line);border-radius:7px;cursor:pointer;color:var(--sub);background:var(--panel);font-weight:600;transition:background .12s,color .12s,border-color .12s;}
 .daytab.active{background:var(--ink);color:var(--bg);border-color:var(--ink);}
-table.grid{border-collapse:collapse;width:100%;font-size:.8rem;table-layout:fixed;}
-table.grid th,table.grid td{border:1px solid var(--line);padding:7px;vertical-align:top;}
-table.grid th{background:var(--grid);font-weight:700;font-size:.75rem;text-align:center;color:var(--sub);}
-table.grid td{min-height:70px;background:var(--panel);}
-.pill{background:var(--chip);border-radius:8px;padding:5px 7px;font-size:.75rem;line-height:1.4;margin-bottom:4px;}
-.pill b{font-weight:700;}
-.pill small{color:var(--sub);display:block;font-family:var(--font-mono);font-size:.66rem;}
+table.grid{border-collapse:separate;border-spacing:0;width:100%;font-size:.8rem;table-layout:fixed;}
+table.grid th,table.grid td{border:1px solid var(--line);padding:8px;vertical-align:top;}
+table.grid th{background:var(--grid);font-weight:700;font-size:.72rem;text-align:center;color:var(--sub);letter-spacing:.02em;text-transform:uppercase;}
+table.grid th:first-child{text-transform:none;font-family:var(--font-display);letter-spacing:0;}
+table.grid td{min-height:74px;background:var(--bg);}
+.pill{background:var(--panel);border-radius:9px;padding:7px 10px 8px;font-size:.76rem;line-height:1.4;margin-bottom:6px;border:1px solid var(--line);border-left:3px solid var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.07);}
+.pill b{font-weight:700;display:block;margin-bottom:1px;color:var(--ink);}
+.pill small{color:var(--sub);display:block;font-family:var(--font-mono);font-size:.68rem;line-height:1.5;}
 .emptystate{padding:60px 20px;text-align:center;color:var(--sub);font-size:.9rem;}
 .meta{font-family:var(--font-mono);font-size:.72rem;color:var(--sub);margin-bottom:14px;}
 </style>
@@ -53,9 +54,28 @@ let DATA = null;
 let gradeFilter = 'all';
 let currentDay = null;
 
-// 링크 자체(#d=...)에 시간표 데이터가 담겨 있으면 그걸 바로 쓰고, 없으면 같은 위치의 schedule-data.json을 불러온다.
+function fromBase64Url(s){
+  s = s.replace(/-/g,'+').replace(/_/g,'/');
+  while(s.length%4) s+='=';
+  const bin = atob(s);
+  const bytes = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) bytes[i]=bin.charCodeAt(i);
+  return bytes;
+}
+async function gzipDecompress(bytes){
+  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return await new Response(stream).text();
+}
+// 링크 자체(#dz=압축 또는 #d=평문)에 시간표 데이터가 담겨 있으면 그걸 바로 쓰고, 없으면 같은 위치의 schedule-data.json을 불러온다.
+const gzMatch = location.hash.match(/^#dz=(.+)$/);
 const hashMatch = location.hash.match(/^#d=(.+)$/);
-if(hashMatch){
+if(gzMatch){
+  gzipDecompress(fromBase64Url(gzMatch[1])).then(json=>{
+    DATA = JSON.parse(json); currentDay = DATA.days[0]; render();
+  }).catch(()=>{
+    document.getElementById('content').innerHTML = '<div class="emptystate">공유 링크를 읽을 수 없습니다. 링크가 잘렸을 수 있어요.</div>';
+  });
+} else if(hashMatch){
   try{
     const json = decodeURIComponent(escape(atob(hashMatch[1])));
     DATA = JSON.parse(json);
