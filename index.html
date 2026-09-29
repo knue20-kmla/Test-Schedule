@@ -65,7 +65,7 @@ table.grid thead th:first-child{border-top-left-radius:13px;text-transform:none;
 table.grid thead th:last-child{border-top-right-radius:13px;}
 table.grid .pno{display:block;font-family:var(--font-display);font-weight:800;font-size:.8rem;color:var(--accent);}
 table.grid .ptime{display:block;font-family:var(--font-mono);font-size:.6rem;color:var(--sub);margin-top:1px;}
-table.grid .roomcol{width:78px;background:var(--grid);text-align:left;border-right:3px solid var(--accent);}
+table.grid .roomcol{width:78px;background:var(--grid);text-align:left;border-right:2px solid var(--line-strong);}
 table.grid .roomname{display:block;font-family:var(--font-display);font-weight:700;font-size:.82rem;color:var(--ink);}
 table.grid .roomcap{display:inline-block;font-family:var(--font-mono);font-size:.6rem;color:var(--sub);margin-top:3px;background:var(--panel);border:1px solid var(--line-strong);border-radius:20px;padding:1px 6px;}
 table.grid .roomcol-big .roomname{color:var(--accent);}
@@ -88,6 +88,7 @@ table.grid tr:hover td{background:color-mix(in srgb, var(--panel) 88%, var(--acc
 .flagrow.good{border-left-color:var(--good);}
 table.teach{width:100%;border-collapse:collapse;font-size:.8rem;}
 table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;}
+table.teach thead th,.rosterlist thead th{border-bottom:2px solid var(--accent);color:var(--accent);font-weight:800;font-size:.7rem;text-transform:uppercase;letter-spacing:.02em;}
 .bar{height:8px;background:var(--grid);border-radius:4px;overflow:hidden;}
 .bar > div{height:100%;background:var(--accent);}
 .emptystate{padding:50px 20px;text-align:center;color:var(--sub);font-size:.9rem;}
@@ -265,6 +266,7 @@ table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8p
       </div>
       <button class="primary" id="genRunBtn" disabled>시간표 생성</button>
       <button class="ghost" id="genExportBtn" style="width:100%;margin-top:8px;display:none;">엑셀로 내보내기</button>
+      <button class="ghost" id="versionSwitchBtn" style="width:100%;margin-top:6px;display:none;">🔀 다른 버전으로 바꾸기</button>
       <div id="shareBox" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">
         <label>학생 공유 — 짧은 고정 주소</label>
         <div class="small" style="font-family:var(--font-mono);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;margin-bottom:6px;word-break:break-all;">https://knue20-kmla.github.io/Test-Schedule/view.html</div>
@@ -1251,6 +1253,7 @@ function assignGenProctors(roomAssign, subjectsMap, teachers){
 // 유효한) 배치가 나올 수 있다. seed를 바꿔가며 3개 버전을 만들어 사용자가 비교해서 고를 수 있게 한다.
 let GEN_VARIANTS = [];
 let GEN_VARIANT_INPUT = null; // {grouped, groupIds, subjectsByGroup, students, teachers, days, maxPerDay, config}
+let GEN_SELECTED_IDX = null; // 지금 GENSTATE로 확정된 버전 번호(0-based) — 마음에 안 들면 나머지 버전으로 언제든 다시 바꿀 수 있게 기억해둔다.
 function buildGenVariant(seed){
   const {grouped, groupIds, subjectsByGroup, students, teachers, days, maxPerDay} = GEN_VARIANT_INPUT;
   const schedRes = scheduleAllGen(groupIds, subjectsByGroup, days, maxPerDay, seed);
@@ -1300,6 +1303,7 @@ function runGenPipeline(){
   const seeds = [];
   while(seeds.length<3){ const s = Math.floor(Math.random()*1e9); if(!seeds.includes(s)) seeds.push(s); }
   GEN_VARIANTS = seeds.map(s=>buildGenVariant(s));
+  GEN_SELECTED_IDX = null;
   renderVersionPickModal();
   document.getElementById('versionPickModalBg').hidden = false;
 }
@@ -1318,10 +1322,14 @@ function renderVersionPickModal(){
   el.innerHTML = scored.map(({i,v,dist,atMax})=>{
     const distLine = Object.keys(dist).sort().map(k=>`${k}과목 ${dist[k]}명`).join(' · ');
     const pct = totalStudents? Math.round(atMax/totalStudents*100) : 0;
-    return `<div class="card versioncard" style="text-align:left;${i===bestIdx?'border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset;':''}">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+    const isCurrent = i===GEN_SELECTED_IDX;
+    return `<div class="card versioncard" style="text-align:left;${isCurrent?'border-color:var(--good);box-shadow:0 0 0 2px var(--good) inset;':(i===bestIdx?'border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset;':'')}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:6px;flex-wrap:wrap;">
         <b style="font-family:var(--font-display);font-size:.95rem;">버전 ${i+1}</b>
-        ${i===bestIdx?'<span class="tag" style="background:var(--accent);color:var(--accent-ink);border:none;">추천</span>':''}
+        <span style="display:flex;gap:4px;">
+          ${isCurrent?'<span class="tag" style="background:var(--good);color:var(--accent-ink);border:none;">현재 선택됨</span>':''}
+          ${i===bestIdx?'<span class="tag" style="background:var(--accent);color:var(--accent-ink);border:none;">추천</span>':''}
+        </span>
       </div>
       <div class="small" style="line-height:1.8;">
         <div style="color:${v.unplaced.size?'var(--bad)':'var(--good)'}">미배치 과목: <b>${v.unplaced.size}</b></div>
@@ -1329,23 +1337,26 @@ function renderVersionPickModal(){
         <div>하루 ${maxPerDay}과목을 보는 학생: <b>${atMax}명</b> (${pct}%)</div>
         <div>일별 최다 과목 분포: ${distLine||'-'}</div>
       </div>
-      <button class="primary" data-pick="${i}" style="margin-top:10px;">이 버전 선택</button>
+      <button class="${isCurrent?'ghost':'primary'}" data-pick="${i}" style="margin-top:10px;" ${isCurrent?'disabled':''}>${isCurrent?'현재 사용 중':'이 버전 선택'}</button>
     </div>`;
   }).join('');
   el.querySelectorAll('[data-pick]').forEach(btn=>{
     btn.onclick = ()=> selectGenVariant(parseInt(btn.dataset.pick,10));
   });
 }
+// 버전을 고른 뒤에도 마음이 바뀌면 나머지 버전들로 몇 번이든 다시 바꿀 수 있다(GEN_VARIANTS는 지우지 않고 남겨둔다).
 function selectGenVariant(idx){
   const v = GEN_VARIANTS[idx];
   const {config} = GEN_VARIANT_INPUT;
   GENSTATE = { config, days:v.days, subjects:v.subjects, subjectsMap:v.subjectsMap, students:v.students, teachers:v.teachers,
     subjectSlot:v.subjectSlot, unplaced:v.unplaced, subjectsBySlot:v.subjectsBySlot, roomAssign:v.roomAssign,
     roomConflicts:v.roomConflicts, proctorAssign:v.proctorAssign, manualOverrides:{}, manualRoomOverrides:{} };
+  GEN_SELECTED_IDX = idx;
   document.getElementById('versionPickModalBg').hidden = true;
   document.getElementById('statusTag').textContent = `${config.semester}학기 ${config.examType}고사 · 과목 ${v.subjects.length}개 (버전 ${idx+1})`;
   document.getElementById('genExportBtn').style.display = 'block';
   document.getElementById('shareBox').style.display = 'block';
+  document.getElementById('versionSwitchBtn').style.display = GEN_VARIANTS.length>1 ? 'block' : 'none';
   renderGenStat(); renderGenAll();
   saveScheduleToHistory();
   if(v.unplaced.size){
@@ -1477,7 +1488,7 @@ function renderGenStudentCard(stu){
   }).filter(Boolean).sort((a,b)=>{ if(!a.slot) return 1; if(!b.slot) return -1; return a.slot.day.localeCompare(b.slot.day)||a.slot.period-b.slot.period; });
   const copyText = `${stu.name} (${stu.id}) 시간표\n` + rows.map(r=>`${r.slot?dayLabelFromDate(r.slot.day)+' '+r.slot.period+'교시':'미배정'} | ${subjectDisplayName(r.s)} | ${r.room}`).join('\n');
   return `<div class="studentcard"><h3 style="font-size:1rem;">${stu.name} <span class="small">${stu.grade}학년 · 학번 ${stu.id}</span></h3>
-    <table><thead><tr><th>날짜</th><th>교시</th><th>과목</th><th>강의실</th></tr></thead><tbody>${rows.map(r=>`
+    <table class="teach"><thead><tr><th>날짜</th><th>교시</th><th>과목</th><th>강의실</th></tr></thead><tbody>${rows.map(r=>`
       <tr><td>${r.slot?dayLabelFromDate(r.slot.day):'<span class="badge bad">미배정</span>'}</td><td>${r.slot?r.slot.period+'교시':'-'}</td><td>${subjectDisplayName(r.s)}</td><td>${r.room}</td></tr>`).join('')}</tbody></table>
     <button class="ghost" style="margin-top:8px;" data-copy="${copyText.replace(/"/g,'&quot;')}">시간표 복사</button></div>`;
 }
@@ -1909,6 +1920,11 @@ function renderHistoryList(){
 }
 document.getElementById('versionPickModalBg').addEventListener('click', ev=>{ if(ev.target.id==='versionPickModalBg') ev.currentTarget.hidden = true; });
 document.getElementById('versionPickRegenBtn').onclick = ()=> runGenPipeline();
+document.getElementById('versionSwitchBtn').onclick = ()=>{
+  if(!GEN_VARIANTS.length) return;
+  renderVersionPickModal();
+  document.getElementById('versionPickModalBg').hidden = false;
+};
 document.getElementById('historyBtn').onclick = ()=>{ renderHistoryList(); renderCloudList(); document.getElementById('historyModalBg').hidden = false; };
 document.getElementById('historyCloseBtn').onclick = ()=>{ document.getElementById('historyModalBg').hidden = true; };
 document.getElementById('historyModalBg').addEventListener('click', ev=>{ if(ev.target.id==='historyModalBg') ev.currentTarget.hidden = true; });
@@ -1958,6 +1974,9 @@ function restoreFullState(data){
   genRecomputeDerived();
   setMode('generate');
   genCurrentDay = GENSTATE.days[0]; genGradeFilter = 'all';
+  // 불러온 저장본은 그때 만들었던 다른 버전들이 남아있지 않으므로 "다른 버전으로 바꾸기"는 숨긴다.
+  GEN_VARIANTS = []; GEN_VARIANT_INPUT = null; GEN_SELECTED_IDX = null;
+  document.getElementById('versionSwitchBtn').style.display = 'none';
   document.getElementById('statusTag').textContent = `${GENSTATE.config.semester}학기 ${GENSTATE.config.examType}고사 · 과목 ${GENSTATE.subjects.length}개 (불러옴)`;
   document.getElementById('genExportBtn').style.display = 'block';
   document.getElementById('shareBox').style.display = 'block';
