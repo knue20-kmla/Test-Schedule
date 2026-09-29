@@ -65,7 +65,7 @@ table.grid thead th:first-child{border-top-left-radius:13px;text-transform:none;
 table.grid thead th:last-child{border-top-right-radius:13px;}
 table.grid .pno{display:block;font-family:var(--font-display);font-weight:800;font-size:.8rem;color:var(--accent);}
 table.grid .ptime{display:block;font-family:var(--font-mono);font-size:.6rem;color:var(--sub);margin-top:1px;}
-table.grid .roomcol{width:78px;background:var(--grid);text-align:left;border-right:2px solid var(--line-strong);}
+table.grid .roomcol{width:78px;background:var(--grid);text-align:left;border-right:3px solid var(--accent);}
 table.grid .roomname{display:block;font-family:var(--font-display);font-weight:700;font-size:.82rem;color:var(--ink);}
 table.grid .roomcap{display:inline-block;font-family:var(--font-mono);font-size:.6rem;color:var(--sub);margin-top:3px;background:var(--panel);border:1px solid var(--line-strong);border-radius:20px;padding:1px 6px;}
 table.grid .roomcol-big .roomname{color:var(--accent);}
@@ -193,13 +193,13 @@ table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8p
   </div>
 
   <div id="versionPickModalBg" class="modalbg" hidden>
-    <div class="modalbox" style="max-width:920px;">
+    <div class="modalbox" style="max-width:960px;max-height:88vh;">
       <div class="modalhead">
-        <h3 style="font-size:1rem;">시간표 버전 선택</h3>
+        <h3 style="font-size:1rem;">시간표 버전 선택 (총 3개)</h3>
         <button class="ghost" id="versionPickRegenBtn">🔄 다시 만들기</button>
       </div>
-      <div class="small" style="margin-bottom:12px;">같은 조건으로 서로 다른 3가지 배치를 만들었습니다. 비교해보고 마음에 드는 버전을 선택하세요.</div>
-      <div id="versionPickList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;"></div>
+      <div class="small" style="margin-bottom:12px;">같은 조건으로 서로 다른 3가지 배치를 만들었습니다. 아래 3개 카드를 비교해보고(모자라면 스크롤) 마음에 드는 버전을 선택하세요.</div>
+      <div id="versionPickList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;"></div>
     </div>
   </div>
 
@@ -1495,9 +1495,9 @@ function renderGenDraft(){
   html += `</div>`;
   if(!genCurrentDay) genCurrentDay = GENSTATE.days[0];
   html += '<div class="daytabs">' + GENSTATE.days.map(d=>`<div class="daytab ${d===genCurrentDay?'active':''}" data-day="${d}">${dayLabelFromDate(d)}</div>`).join('') + '</div>';
-  html += '<div style="overflow-x:auto;"><table class="grid"><thead><tr><th style="width:70px;">강의실</th>' + PERIODS.map(p=>`<th>${p.no}교시</th>`).join('') + '</tr></thead><tbody>';
+  html += '<div class="tablewrap"><table class="grid"><thead><tr><th class="roomcol">강의실</th>' + PERIODS.map(p=>`<th><span class="pno">${p.no}교시</span></th>`).join('') + '</tr></thead><tbody>';
   ROOMS.forEach(room=>{
-    html += `<tr><th>${room.name}</th>`;
+    html += `<tr><th class="roomcol ${room.big?'roomcol-big':''}"><span class="roomname">${room.name}</span></th>`;
     PERIODS.forEach(p=>{
       const key=`${genCurrentDay}_${p.no}`; const roomsHere = GENSTATE.roomAssign[key]||[]; const match = roomsHere.find(r=>r.name===room.name);
       html += `<td class="dropzone" data-day="${genCurrentDay}" data-period="${p.no}" data-room="${room.name}">`;
@@ -1581,9 +1581,9 @@ function renderGenProctor(){
   const pane = document.getElementById('genpane-proctor');
   if(!genCurrentDay) genCurrentDay = GENSTATE.days[0];
   let html = '<div class="daytabs">' + GENSTATE.days.map(d=>`<div class="daytab ${d===genCurrentDay?'active':''}" data-day="${d}">${dayLabelFromDate(d)}</div>`).join('') + '</div>';
-  html += '<div style="overflow-x:auto;"><table class="grid"><thead><tr><th style="width:70px;">강의실</th>' + PERIODS.map(p=>`<th>${p.no}교시</th>`).join('') + '</tr></thead><tbody>';
+  html += '<div class="tablewrap"><table class="grid"><thead><tr><th class="roomcol">강의실</th>' + PERIODS.map(p=>`<th><span class="pno">${p.no}교시</span></th>`).join('') + '</tr></thead><tbody>';
   ROOMS.forEach(room=>{
-    html += `<tr><th>${room.name}</th>`;
+    html += `<tr><th class="roomcol ${room.big?'roomcol-big':''}"><span class="roomname">${room.name}</span></th>`;
     PERIODS.forEach(p=>{
       const key=`${genCurrentDay}_${p.no}`; const pa=(GENSTATE.proctorAssign[key]||{})[room.name];
       html += '<td>';
