@@ -60,7 +60,7 @@ table.grid th,table.grid td{border-bottom:1.5px solid var(--line-strong);border-
 table.grid th:first-child,table.grid td:first-child{border-left:none;}
 table.grid tr:last-child th,table.grid tr:last-child td{border-bottom:none;}
 table.grid tr th:last-child,table.grid tr td:last-child{border-right:none;}
-table.grid thead th{background:var(--panel);font-weight:800;font-size:.7rem;text-align:center;color:var(--accent);letter-spacing:.02em;text-transform:uppercase;border-top:none;border-bottom-width:2.5px;border-bottom-color:var(--accent);}
+table.grid thead th{background:var(--panel);font-weight:800;font-size:.7rem;text-align:center;color:var(--accent);letter-spacing:.02em;text-transform:uppercase;border-top:none;border-bottom:4px solid var(--accent);padding-bottom:8px;}
 table.grid thead th:first-child{border-top-left-radius:13px;text-transform:none;font-family:var(--font-display);letter-spacing:0;}
 table.grid thead th:last-child{border-top-right-radius:13px;}
 table.grid .pno{display:block;font-family:var(--font-display);font-weight:800;font-size:.8rem;color:var(--accent);}
@@ -976,8 +976,14 @@ function canFitNormals(existing, extra, dAvailable){
 }
 // 모든 시험군(examGroup)을 한 번에 스케줄링 — 학생 충돌뿐 아니라 강의실 용량까지 배정 시점에 검증해
 // "일단 배치 후 충돌 표시"가 아니라 애초에 충돌 없는 시간표가 나오도록 한다.
-function scheduleAllGen(groupIds, subjectsByGroup, days, maxPerDay, seed){
+function scheduleAllGen(groupIds, subjectsByGroup, days, maxPerDay, seed, students){
   maxPerDay = maxPerDay || 3;
+  students = students || {};
+  // 원칙: 1학년은 학교 방침상 하루 최대 2과목까지만 응시한다(전체 설정이 3과목이어도 1학년은 예외 없이 2과목).
+  function studentCap(sid){
+    const st = students[sid];
+    return (st && st.grade===1) ? Math.min(maxPerDay, 2) : maxPerDay;
+  }
   // seed가 다르면 "동점 후보" 중 어느 쪽을 고를지가 달라져 서로 다른(그러나 똑같이 유효한) 시간표
   // 버전이 나온다 — 같은 seed는 항상 같은 결과를 재현한다.
   const rng = mulberry32(seed==null ? 1 : seed);
@@ -1020,7 +1026,7 @@ function scheduleAllGen(groupIds, subjectsByGroup, days, maxPerDay, seed){
   function canPlace(node, key, day){
     const occ = slotAssign[key];
     for(const oi of occ){ if(node.conflicts.has(oi)) return false; }
-    for(const sid of node.students){ const cnt=(studentDayCount[sid]||{})[day]||0; if(cnt>=maxPerDay) return false; }
+    for(const sid of node.students){ const cnt=(studentDayCount[sid]||{})[day]||0; if(cnt>=studentCap(sid)) return false; }
     return canPlaceRoom(node, key);
   }
   const dayFamilyUsed = {}; // day -> Set(family) : 같은 계열 과목을 하루에 몰아 배정하지 않기 위한 소프트 제약
@@ -1041,7 +1047,7 @@ function scheduleAllGen(groupIds, subjectsByGroup, days, maxPerDay, seed){
       let hitsCapCount=0, zeroSoFarCount=0;
       for(const sid of node.students){
         const cnt = (studentDayCount[sid]||{})[slot.day]||0;
-        if(cnt+1>=maxPerDay) hitsCapCount++;
+        if(cnt+1>=studentCap(sid)) hitsCapCount++;
         if(cnt===0) zeroSoFarCount++;
       }
       const n = node.students.size;
@@ -1256,7 +1262,7 @@ let GEN_VARIANT_INPUT = null; // {grouped, groupIds, subjectsByGroup, students, 
 let GEN_SELECTED_IDX = null; // 지금 GENSTATE로 확정된 버전 번호(0-based) — 마음에 안 들면 나머지 버전으로 언제든 다시 바꿀 수 있게 기억해둔다.
 function buildGenVariant(seed){
   const {grouped, groupIds, subjectsByGroup, students, teachers, days, maxPerDay} = GEN_VARIANT_INPUT;
-  const schedRes = scheduleAllGen(groupIds, subjectsByGroup, days, maxPerDay, seed);
+  const schedRes = scheduleAllGen(groupIds, subjectsByGroup, days, maxPerDay, seed, students);
   const subjectSlot = schedRes.subjectSlot; const unplaced = schedRes.unplacedSubjectIds;
   const subjectsMap={}; grouped.forEach(s=>subjectsMap[s.id]=s);
   const subjectsBySlot={}; days.forEach(d=>PERIODS.forEach(p=>subjectsBySlot[`${d}_${p.no}`]=[]));
