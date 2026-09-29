@@ -189,13 +189,13 @@ function openRoster(subjId, roomName, slotKey){
   const room = (DATA.slots[slotKey]||[]).find(r=>r.name===roomName);
   const item = room ? (room.items||[]).find(it=>it.subjId===subjId) : null;
   const idsToShow = (item && item.students && item.students.length) ? item.students : (s.students||[]);
-  const list = idsToShow.map(sid=>({id:sid, ...(DATA.students && DATA.students[sid] || {name:sid, grade:''})}))
-    .sort((a,b)=> (a.grade-b.grade) || String(a.name).localeCompare(String(b.name),'ko'));
+  const list = idsToShow.map(sid=>({id:sid, ...(DATA.students && DATA.students[sid] || {name:sid, grade:'', adminClass:null})}))
+    .sort((a,b)=> (a.grade-b.grade) || ((a.adminClass||9999)-(b.adminClass||9999)) || String(a.name).localeCompare(String(b.name),'ko'));
   document.getElementById('rosterTitle').textContent = s.subject + (s.block?'('+s.block+')':'') + ' · ' + s.teacher;
   const roomLine = item ? ('<div class="small" style="margin-bottom:8px;">' + roomName + ' 배정 인원: <b>' + item.count + '명</b> (과목 전체 ' + s.count + '명 중)</div>') : ('<div class="small" style="margin-bottom:8px;">전체 수강생: <b>' + s.count + '명</b></div>');
   document.getElementById('rosterBody').innerHTML = roomLine +
-    '<table class="rosterlist"><thead><tr><th>#</th><th>학년</th><th>이름</th></tr></thead><tbody>' +
-    list.map((st,i)=>'<tr><td>' + (i+1) + '</td><td>' + st.grade + '</td><td>' + st.name + '</td></tr>').join('') +
+    '<table class="rosterlist"><thead><tr><th>#</th><th>학년</th><th>행정반</th><th>이름</th></tr></thead><tbody>' +
+    list.map((st,i)=>'<tr><td>' + (i+1) + '</td><td>' + st.grade + '</td><td>' + (st.adminClass!=null?st.adminClass+'반':'-') + '</td><td>' + st.name + '</td></tr>').join('') +
     '</tbody></table>';
   document.getElementById('rosterModalBg').hidden = false;
 }

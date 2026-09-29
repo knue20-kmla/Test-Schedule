@@ -1658,7 +1658,7 @@ function buildShareData(){
   const subjects = {};
   GENSTATE.subjects.forEach(s=>{ subjects[s.id] = { subject:s.subject, block:s.block, teacher:s.teacher, gradeLabel:s.gradeLabel, grades:[...s.grades], count:s.count, students:[...s.students] }; });
   const students = {};
-  Object.values(GENSTATE.students).forEach(st=>{ students[st.id] = { name:st.name, grade:st.grade }; });
+  Object.values(GENSTATE.students).forEach(st=>{ students[st.id] = { name:st.name, grade:st.grade, adminClass:st.adminClass!=null?st.adminClass:null }; });
   const slots = {};
   GENSTATE.days.forEach(day=> PERIODS.forEach(p=>{
     const key = `${day}_${p.no}`;
@@ -1869,10 +1869,10 @@ function openStudentRosterModal(subjId, roomName, slotKey){
   }
   const idsToShow = (roomItem && roomItem.students) ? roomItem.students : [...s.students];
   const list = idsToShow.map(sid=>GENSTATE.students[sid]).filter(Boolean)
-    .sort((a,b)=> a.grade-b.grade || a.name.localeCompare(b.name,'ko'));
+    .sort((a,b)=> a.grade-b.grade || (a.adminClass||9999)-(b.adminClass||9999) || a.name.localeCompare(b.name,'ko'));
   const roomLine = roomItem ? `<div class="small" style="margin-bottom:8px;">${roomName} 배정 인원: <b>${roomItem.count}명</b> (과목 전체 수강생: ${s.count}명 중 이 강의실 분반)</div>` : `<div class="small" style="margin-bottom:8px;">전체 수강생: <b>${s.count}명</b></div>`;
-  body.innerHTML = roomLine + `<table class="rosterlist"><thead><tr><th>#</th><th>학년</th><th>이름</th><th>학번</th></tr></thead><tbody>` +
-    list.map((st,i)=>`<tr><td>${i+1}</td><td>${st.grade}</td><td>${st.name}</td><td>${st.id}</td></tr>`).join('') +
+  body.innerHTML = roomLine + `<table class="rosterlist"><thead><tr><th>#</th><th>학년</th><th>행정반</th><th>이름</th><th>학번</th></tr></thead><tbody>` +
+    list.map((st,i)=>`<tr><td>${i+1}</td><td>${st.grade}</td><td>${st.adminClass!=null?st.adminClass+'반':'-'}</td><td>${st.name}</td><td>${st.id}</td></tr>`).join('') +
     `</tbody></table>`;
   document.getElementById('rosterModalBg').hidden = false;
 }
