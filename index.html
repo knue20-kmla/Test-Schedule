@@ -50,11 +50,24 @@ button.ghost:hover{border-color:var(--accent);color:var(--accent);}
 .tab.active{color:var(--accent);border-color:var(--accent);}
 .tabpane{display:none;}
 .tabpane.active{display:block;}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:14px;box-shadow:0 2px 10px rgba(0,0,0,.05);background:var(--panel);}
 table.grid{border-collapse:separate;border-spacing:0;width:100%;font-size:.76rem;table-layout:fixed;}
-table.grid th,table.grid td{border:1px solid var(--line);padding:7px;vertical-align:top;}
-table.grid th{background:var(--grid);font-weight:700;font-size:.7rem;text-align:center;color:var(--sub);letter-spacing:.02em;text-transform:uppercase;}
-table.grid th:first-child{text-transform:none;font-family:var(--font-display);letter-spacing:0;}
+table.grid th,table.grid td{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:7px;vertical-align:top;}
+table.grid th:first-child,table.grid td:first-child{border-left:none;}
+table.grid tr:last-child th,table.grid tr:last-child td{border-bottom:none;}
+table.grid tr th:last-child,table.grid tr td:last-child{border-right:none;}
+table.grid thead th{background:var(--grid);font-weight:700;font-size:.7rem;text-align:center;color:var(--sub);letter-spacing:.02em;text-transform:uppercase;border-top:none;}
+table.grid thead th:first-child{border-top-left-radius:13px;text-transform:none;font-family:var(--font-display);letter-spacing:0;}
+table.grid thead th:last-child{border-top-right-radius:13px;}
+table.grid .pno{display:block;font-family:var(--font-display);font-weight:700;font-size:.8rem;color:var(--ink);}
+table.grid .ptime{display:block;font-family:var(--font-mono);font-size:.6rem;color:var(--sub);margin-top:1px;}
+table.grid .roomcol{width:78px;background:var(--grid);text-align:left;}
+table.grid .roomname{display:block;font-family:var(--font-display);font-weight:700;font-size:.82rem;color:var(--ink);}
+table.grid .roomcap{display:inline-block;font-family:var(--font-mono);font-size:.6rem;color:var(--sub);margin-top:3px;background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:1px 6px;}
+table.grid .roomcol-big .roomname{color:var(--accent);}
+table.grid tbody tr:nth-child(even) td{background:color-mix(in srgb, var(--bg) 100%, var(--ink) 2.5%);}
 table.grid td{height:80px;background:var(--bg);}
+table.grid tbody tr:last-child th:first-child{border-bottom-left-radius:13px;}
 table.grid tr:hover td{background:color-mix(in srgb, var(--bg) 92%, var(--accent) 8%);}
 .block{background:var(--chip);border-radius:8px;padding:6px 8px;font-size:.72rem;line-height:1.4;margin-bottom:4px;cursor:grab;}
 .block b{font-weight:700;}
@@ -122,7 +135,19 @@ table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8p
     </div>
     <div class="rowgap" style="align-items:center;">
       <span class="tag" id="statusTag">파일 없음</span>
+      <button class="ghost" id="historyBtn" title="이전에 생성한 시간표 목록">🕘 이전 시간표 확인하기</button>
       <button class="ghost" id="resetBtn" title="처음부터 다시 시작">↺ 초기화</button>
+    </div>
+  </div>
+
+  <div id="historyModalBg" class="modalbg" hidden>
+    <div class="modalbox">
+      <div class="modalhead">
+        <h3 style="font-size:1rem;">이전에 생성한 시간표</h3>
+        <button class="ghost" id="historyCloseBtn">닫기</button>
+      </div>
+      <div class="small" style="margin-bottom:10px;">이 브라우저에 저장된 목록입니다(다른 기기·브라우저에서는 보이지 않습니다). 최근 20개까지 보관됩니다.</div>
+      <div id="historyList"></div>
     </div>
   </div>
 
@@ -188,13 +213,18 @@ table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8p
       </div>
       <button class="primary" id="genRunBtn" disabled>시간표 생성</button>
       <button class="ghost" id="genExportBtn" style="width:100%;margin-top:8px;display:none;">엑셀로 내보내기</button>
-      <button class="primary" id="genShareLinkBtn" style="display:none;">🔗 학생 공유 링크 만들기</button>
-      <div id="shareLinkBox" style="display:none;margin-top:8px;">
-        <input type="text" id="shareLinkInput" readonly style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-family:var(--font-mono);font-size:.72rem;">
-        <div class="small" id="shareLinkCopyState" style="margin-top:4px;"></div>
+      <div id="shareBox" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">
+        <label>학생 공유</label>
+        <div class="small" style="margin-bottom:6px;"><b>짧은 고정 주소</b> (추천) — 아래 버튼으로 파일을 받아 저(Claude)에게 보내주시면 이 주소가 최신 시간표로 업데이트됩니다. 한 번 올려두면 계속 같은 주소를 쓸 수 있어요.</div>
+        <div class="small" style="font-family:var(--font-mono);background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:7px 9px;margin-bottom:6px;word-break:break-all;">https://knue20-kmla.github.io/Test-Schedule/view.html</div>
+        <button class="ghost" id="genShareBtn" style="width:100%;">📄 공유 파일 내보내기 (schedule-data.json)</button>
+        <div class="small" style="margin:10px 0 6px;">즉석 링크 — 기다리지 않고 바로 쓸 수 있지만, 데이터가 링크 안에 들어있어 다소 깁니다.</div>
+        <button class="ghost" id="genShareLinkBtn" style="width:100%;">🔗 즉석 링크 만들기</button>
+        <div id="shareLinkBox" style="display:none;margin-top:8px;">
+          <input type="text" id="shareLinkInput" readonly style="width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-family:var(--font-mono);font-size:.72rem;">
+          <div class="small" id="shareLinkCopyState" style="margin-top:4px;"></div>
+        </div>
       </div>
-      <button class="ghost" id="genShareBtn" style="width:100%;margin-top:6px;display:none;">공유용 데이터 파일 내보내기 (schedule-data.json)</button>
-      <div class="small" id="shareHint" style="display:none;margin-top:4px;">위 "공유 링크 만들기" 버튼 하나로 충분합니다. 이 파일 내보내기는 저장소에 고정 링크(schedule-data.json)로 올려두고 싶을 때만 쓰세요.</div>
       <div class="stat" id="genStatBox" style="margin-top:12px;"></div>
     </div>
 
@@ -1147,10 +1177,9 @@ function runGenPipeline(){
     subjectSlot, unplaced, subjectsBySlot, roomAssign, roomConflicts, proctorAssign, manualOverrides:{}, manualRoomOverrides:{} };
   document.getElementById('statusTag').textContent = `${semester}학기 ${examType}고사 · 과목 ${grouped.length}개`;
   document.getElementById('genExportBtn').style.display = 'block';
-  document.getElementById('genShareLinkBtn').style.display = 'block';
-  document.getElementById('genShareBtn').style.display = 'block';
-  document.getElementById('shareHint').style.display = 'block';
+  document.getElementById('shareBox').style.display = 'block';
   renderGenStat(); renderGenAll();
+  saveScheduleToHistory();
   if(unplaced.size){
     const names = [...unplaced].map(id=>subjectsMap[id]?.subject).filter(Boolean).join(', ');
     alert(`하루 최대 ${maxPerDay}과목 · ${days.length}일 조건으로는 ${unplaced.size}개 과목을 배정하지 못했습니다:\n${names}\n\n"충돌 · 수동 배정" 탭에서 확인하고, 왼쪽의 "학생 1일 최대 응시 과목 수"를 늘리거나 시험 기간을 늘려서 다시 생성해보세요.`);
@@ -1216,9 +1245,9 @@ function renderGenFull(){
     gradesPresent.map(g=>`<div class="daytab ${genGradeFilter===String(g)?'active':''}" data-grade="${g}">${g}학년</div>`).join('') +
     '</div>';
   html += '<div class="daytabs">' + GENSTATE.days.map(d=>`<div class="daytab ${d===genCurrentDay?'active':''}" data-day="${d}">${dayLabelFromDate(d)}</div>`).join('') + '</div>';
-  html += '<div style="overflow-x:auto;"><table class="grid"><thead><tr><th style="width:70px;">강의실</th>' + PERIODS.map(p=>`<th>${p.no}교시<br><span style="font-weight:400;">${p.time}</span></th>`).join('') + '</tr></thead><tbody>';
+  html += '<div class="tablewrap"><table class="grid"><thead><tr><th class="roomcol">강의실</th>' + PERIODS.map(p=>`<th><span class="pno">${p.no}교시</span><span class="ptime">${p.time}</span></th>`).join('') + '</tr></thead><tbody>';
   ROOMS.forEach(room=>{
-    html += `<tr><th>${room.name}<br><span style="font-weight:400;">${room.cap}명</span></th>`;
+    html += `<tr><th class="roomcol ${room.big?'roomcol-big':''}"><span class="roomname">${room.name}</span><span class="roomcap">${room.cap}명</span></th>`;
     PERIODS.forEach(p=>{
       const key=`${genCurrentDay}_${p.no}`; const roomsHere = GENSTATE.roomAssign[key]||[];
       const match = roomsHere.find(r=>r.name===room.name);
@@ -1594,6 +1623,66 @@ function openStudentRosterModal(subjId, roomName, slotKey){
 }
 document.getElementById('rosterCloseBtn').onclick = ()=>{ document.getElementById('rosterModalBg').hidden = true; };
 document.getElementById('rosterModalBg').addEventListener('click', ev=>{ if(ev.target.id==='rosterModalBg') ev.currentTarget.hidden = true; });
+
+/* ================= 이전 시간표 저장/확인 (이 브라우저에만 저장됨) ================= */
+const HISTORY_KEY = 'examSchedulerHistory';
+const HISTORY_MAX = 20;
+function loadHistory(){
+  try{ return JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]'); }catch(e){ return []; }
+}
+function saveHistory(list){
+  try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(list)); }catch(e){ /* 저장 공간 부족 등은 조용히 무시 */ }
+}
+function saveScheduleToHistory(){
+  if(!GENSTATE) return;
+  const data = buildShareData();
+  const cfg = GENSTATE.config;
+  const label = `${cfg.semester}학기 ${cfg.examType}고사 · ${cfg.grades.join(',')}학년 · 과목 ${GENSTATE.subjects.length}개`;
+  const list = loadHistory();
+  list.unshift({ id: uid('hist'), savedAt: new Date().toISOString(), label, data });
+  saveHistory(list.slice(0, HISTORY_MAX));
+}
+function renderHistoryList(){
+  const list = loadHistory();
+  const el = document.getElementById('historyList');
+  if(!list.length){ el.innerHTML = '<div class="emptystate">아직 저장된 시간표가 없습니다. 시간표를 생성하면 자동으로 여기에 저장됩니다.</div>'; return; }
+  el.innerHTML = list.map(item=>{
+    const dt = new Date(item.savedAt).toLocaleString('ko-KR');
+    return `<div class="studentcard" style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+      <div><div style="font-weight:700;font-size:.85rem;">${item.label}</div><div class="small">${dt}</div></div>
+      <div class="rowgap">
+        <button class="ghost" data-view="${item.id}">보기</button>
+        <button class="ghost" data-del="${item.id}">삭제</button>
+      </div>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-view]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      const item = loadHistory().find(x=>x.id===btn.dataset.view);
+      if(!item) return;
+      const json = JSON.stringify(item.data);
+      const base = location.href.replace(/[^/]*$/, '');
+      let url;
+      if(window.CompressionStream){
+        const gz = await gzipCompress(json);
+        url = base + 'view.html#dz=' + toBase64Url(gz);
+      } else {
+        url = base + 'view.html#d=' + btoa(unescape(encodeURIComponent(json)));
+      }
+      window.open(url, '_blank');
+    };
+  });
+  el.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.onclick = ()=>{
+      if(!confirm('이 시간표 기록을 삭제할까요?')) return;
+      saveHistory(loadHistory().filter(x=>x.id!==btn.dataset.del));
+      renderHistoryList();
+    };
+  });
+}
+document.getElementById('historyBtn').onclick = ()=>{ renderHistoryList(); document.getElementById('historyModalBg').hidden = false; };
+document.getElementById('historyCloseBtn').onclick = ()=>{ document.getElementById('historyModalBg').hidden = true; };
+document.getElementById('historyModalBg').addEventListener('click', ev=>{ if(ev.target.id==='historyModalBg') ev.currentTarget.hidden = true; });
 </script>
 </body>
 </html>
