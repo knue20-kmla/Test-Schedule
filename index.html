@@ -192,6 +192,17 @@ table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8p
     </div>
   </div>
 
+  <div id="versionPickModalBg" class="modalbg" hidden>
+    <div class="modalbox" style="max-width:920px;">
+      <div class="modalhead">
+        <h3 style="font-size:1rem;">시간표 버전 선택</h3>
+        <button class="ghost" id="versionPickRegenBtn">🔄 다시 만들기</button>
+      </div>
+      <div class="small" style="margin-bottom:12px;">같은 조건으로 서로 다른 3가지 배치를 만들었습니다. 비교해보고 마음에 드는 버전을 선택하세요.</div>
+      <div id="versionPickList" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;"></div>
+    </div>
+  </div>
+
   <div class="modetabs">
     <div class="modetab active" data-mode="generate">수강신청 원자료로 새로 생성</div>
     <div class="modetab" data-mode="optimize">기존 시간표 최적화</div>
@@ -749,6 +760,21 @@ function gradesCompatible(gA, gB){
 const FOREIGN_LANG_G1 = ['중국어','프랑스어','스페인어','한문'];
 function uid(prefix){ return prefix+'_'+Math.random().toString(36).slice(2,9); }
 function setsShareMember(a,b){ for(const x of a){ if(b.has(x)) return true; } return false; }
+// 시드 기반 난수(mulberry32) — 같은 시드면 항상 같은 순서로 섞여, "버전 1/2/3"이 매번 재현 가능하게 서로 다르다.
+function mulberry32(seed){
+  let a = seed >>> 0;
+  return function(){
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function seededShuffle(arr, rng){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; }
+  return a;
+}
 
 let GEN_RAW_ROWS = null;
 let GEN_ADMIN_CLASS_MAP = new Map(); // 성명 -> 행정반 번호 (있으면 강의실 분반 시 행정반 순으로 나눔)
@@ -948,14 +974,18 @@ function canFitNormals(existing, extra, dAvailable){
 }
 // 모든 시험군(examGroup)을 한 번에 스케줄링 — 학생 충돌뿐 아니라 강의실 용량까지 배정 시점에 검증해
 // "일단 배치 후 충돌 표시"가 아니라 애초에 충돌 없는 시간표가 나오도록 한다.
-function scheduleAllGen(groupIds, subjectsByGroup, days, maxPerDay){
+function scheduleAllGen(groupIds, subjectsByGroup, days, maxPerDay, seed){
   maxPerDay = maxPerDay || 3;
+  // seed가 다르면 "동점 후보" 중 어느 쪽을 고를지가 달라져 서로 다른(그러나 똑같이 유효한) 시간표
+  // 버전이 나온다 — 같은 seed는 항상 같은 결과를 재현한다.
+  const rng = mulberry32(seed==null ? 1 : seed);
   let allNodes = [];
   groupIds.forEach(gid=>{ allNodes = allNodes.concat(buildGenNodes(subjectsByGroup[gid])); });
   allNodes.forEach(n=>{ n.conflicts=new Set(); });
   for(let i=0;i<allNodes.length;i++) for(let j=i+1;j<allNodes.length;j++){
     if(setsShareMember(allNodes[i].students, allNodes[j].students)){ allNodes[i].conflicts.add(j); allNodes[j].conflicts.add(i); }
   }
+  const jitter = allNodes.map(()=>rng());
   // 진짜 공통과목뿐 아니라, "전원이 하나를 골라야 하는 필수 선택 블록" 묶음도 같은 우선순위(1교시 고정)로 취급한다.
   const isCommonNode = n => (n.type==='single' && n.subj.isCommonG1) || n.isMandatory;
   const order = allNodes.map((n,i)=>i).sort((a,b)=>{
@@ -964,11 +994,15 @@ function scheduleAllGen(groupIds, subjectsByGroup, days, maxPerDay){
     if(ca!==cb) return ca?-1:1;
     const d = allNodes[b].conflicts.size - allNodes[a].conflicts.size;
     if(d!==0) return d;
-    return allNodes[b].totalCount - allNodes[a].totalCount;
+    const c = allNodes[b].totalCount - allNodes[a].totalCount;
+    if(c!==0) return c;
+    return jitter[a]-jitter[b];
   });
   const slots = []; days.forEach(day=> PERIODS.forEach(p=> slots.push({day, period:p.no})));
-  const period1Only = slots.filter(s=>s.period===1);
-  const period1Or2 = slots.filter(s=>s.period===1||s.period===2);
+  // 동점 슬롯 후보 중 첫 번째가 항상 이기지 않도록 후보 순서 자체를 시드로 섞는다(버전 간 배치 차이의 핵심).
+  const slotsShuffled = seededShuffle(slots, rng);
+  const period1Only = seededShuffle(slots.filter(s=>s.period===1), rng);
+  const period1Or2 = seededShuffle(slots.filter(s=>s.period===1||s.period===2), rng);
   const slotAssign = {}; const roomState = {};
   slots.forEach(s=>{ const k=`${s.day}_${s.period}`; slotAssign[k]=[]; roomState[k]={big:null, normals:[]}; });
   const studentDayCount = {}; const studentDayCommonUsed = {}; const conflictsUnplaced = [];
@@ -1020,7 +1054,7 @@ function scheduleAllGen(groupIds, subjectsByGroup, days, maxPerDay){
     // 1학년 공통과목(150명 내외)은 원칙적으로 1교시 D-1/D-2로만 배정하고,
     // 1교시 자리가 정말 부족할 때만 예외적으로 2교시까지 허용한다(3·4교시는 안 됨).
     const isCommon = isCommonNode(node);
-    let candList = isCommon ? period1Only : slots;
+    let candList = isCommon ? period1Only : slotsShuffled;
     let best=null, bestScore=-Infinity;
     for(const slot of candList){
       const key=`${slot.day}_${slot.period}`;
@@ -1213,6 +1247,38 @@ function assignGenProctors(roomAssign, subjectsMap, teachers){
   });
   return proctorAssign;
 }
+// 같은 조건(과목·학생·기간)에서도 동점 후보를 어떻게 고르느냐에 따라 서로 다른(그러나 똑같이
+// 유효한) 배치가 나올 수 있다. seed를 바꿔가며 3개 버전을 만들어 사용자가 비교해서 고를 수 있게 한다.
+let GEN_VARIANTS = [];
+let GEN_VARIANT_INPUT = null; // {grouped, groupIds, subjectsByGroup, students, teachers, days, maxPerDay, config}
+function buildGenVariant(seed){
+  const {grouped, groupIds, subjectsByGroup, students, teachers, days, maxPerDay} = GEN_VARIANT_INPUT;
+  const schedRes = scheduleAllGen(groupIds, subjectsByGroup, days, maxPerDay, seed);
+  const subjectSlot = schedRes.subjectSlot; const unplaced = schedRes.unplacedSubjectIds;
+  const subjectsMap={}; grouped.forEach(s=>subjectsMap[s.id]=s);
+  const subjectsBySlot={}; days.forEach(d=>PERIODS.forEach(p=>subjectsBySlot[`${d}_${p.no}`]=[]));
+  grouped.forEach(s=>{ const slot=subjectSlot[s.id]; if(!slot) return; subjectsBySlot[`${slot.day}_${slot.period}`].push(s); });
+  const {roomAssign, roomConflicts} = assignGenRooms(subjectsBySlot, students);
+  const proctorAssign = assignGenProctors(roomAssign, subjectsMap, teachers);
+  return { seed, days, subjects:grouped, subjectsMap, students, teachers,
+    subjectSlot, unplaced, subjectsBySlot, roomAssign, roomConflicts, proctorAssign };
+}
+function computeVariantLoadDist(variant){
+  const perStudentDay = {};
+  variant.subjects.forEach(s=>{
+    const slot = variant.subjectSlot[s.id]; if(!slot) return;
+    s.students.forEach(sid=>{
+      perStudentDay[sid] = perStudentDay[sid] || {};
+      perStudentDay[sid][slot.day] = (perStudentDay[sid][slot.day]||0)+1;
+    });
+  });
+  const dist = {};
+  Object.values(perStudentDay).forEach(byDay=>{
+    const maxInAnyDay = Math.max(0, ...Object.values(byDay));
+    dist[maxInAnyDay] = (dist[maxInAnyDay]||0)+1;
+  });
+  return dist;
+}
 function runGenPipeline(){
   const semester = document.querySelector('input[name=genSem]:checked').value;
   const examType = document.querySelector('input[name=genExamType]:checked').value;
@@ -1229,23 +1295,62 @@ function runGenPipeline(){
   const grouped = subjects;
   const groupIds = [...new Set(grouped.map(s=>s.examGroup))];
   const subjectsByGroup = {}; groupIds.forEach(gid=> subjectsByGroup[gid] = grouped.filter(s=>s.examGroup===gid));
-  const schedRes = scheduleAllGen(groupIds, subjectsByGroup, days, maxPerDay);
-  const subjectSlot = schedRes.subjectSlot; const unplaced = schedRes.unplacedSubjectIds;
-  const subjectsMap={}; grouped.forEach(s=>subjectsMap[s.id]=s);
-  const subjectsBySlot={}; days.forEach(d=>PERIODS.forEach(p=>subjectsBySlot[`${d}_${p.no}`]=[]));
-  grouped.forEach(s=>{ const slot=subjectSlot[s.id]; if(!slot) return; subjectsBySlot[`${slot.day}_${slot.period}`].push(s); });
-  const {roomAssign, roomConflicts} = assignGenRooms(subjectsBySlot, students);
-  const proctorAssign = assignGenProctors(roomAssign, subjectsMap, teachers);
-  GENSTATE = { config:{semester,examType,grades,startDate,endDate,maxPerDay}, days, subjects:grouped, subjectsMap, students, teachers,
-    subjectSlot, unplaced, subjectsBySlot, roomAssign, roomConflicts, proctorAssign, manualOverrides:{}, manualRoomOverrides:{} };
-  document.getElementById('statusTag').textContent = `${semester}학기 ${examType}고사 · 과목 ${grouped.length}개`;
+  GEN_VARIANT_INPUT = { grouped, groupIds, subjectsByGroup, students, teachers, days, maxPerDay,
+    config:{semester,examType,grades,startDate,endDate,maxPerDay} };
+  const seeds = [];
+  while(seeds.length<3){ const s = Math.floor(Math.random()*1e9); if(!seeds.includes(s)) seeds.push(s); }
+  GEN_VARIANTS = seeds.map(s=>buildGenVariant(s));
+  renderVersionPickModal();
+  document.getElementById('versionPickModalBg').hidden = false;
+}
+function renderVersionPickModal(){
+  const totalStudents = Object.keys(GEN_VARIANT_INPUT.students).length;
+  const maxPerDay = GEN_VARIANT_INPUT.maxPerDay;
+  // "좋은 버전" 기준: 미배치·강의실초과가 없어야 하고, 그 중에서 하루 최대치까지 채워지는 학생이 적을수록 좋다.
+  const scored = GEN_VARIANTS.map((v,i)=>{
+    const dist = computeVariantLoadDist(v);
+    const atMax = dist[maxPerDay] || 0;
+    const penalty = v.unplaced.size*10000 + v.roomConflicts.length*1000 + atMax;
+    return {i, v, dist, atMax, penalty};
+  });
+  const bestIdx = scored.slice().sort((a,b)=>a.penalty-b.penalty)[0].i;
+  const el = document.getElementById('versionPickList');
+  el.innerHTML = scored.map(({i,v,dist,atMax})=>{
+    const distLine = Object.keys(dist).sort().map(k=>`${k}과목 ${dist[k]}명`).join(' · ');
+    const pct = totalStudents? Math.round(atMax/totalStudents*100) : 0;
+    return `<div class="card versioncard" style="text-align:left;${i===bestIdx?'border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset;':''}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+        <b style="font-family:var(--font-display);font-size:.95rem;">버전 ${i+1}</b>
+        ${i===bestIdx?'<span class="tag" style="background:var(--accent);color:var(--accent-ink);border:none;">추천</span>':''}
+      </div>
+      <div class="small" style="line-height:1.8;">
+        <div style="color:${v.unplaced.size?'var(--bad)':'var(--good)'}">미배치 과목: <b>${v.unplaced.size}</b></div>
+        <div style="color:${v.roomConflicts.length?'var(--bad)':'var(--good)'}">강의실 초과: <b>${v.roomConflicts.length}건</b></div>
+        <div>하루 ${maxPerDay}과목을 보는 학생: <b>${atMax}명</b> (${pct}%)</div>
+        <div>일별 최다 과목 분포: ${distLine||'-'}</div>
+      </div>
+      <button class="primary" data-pick="${i}" style="margin-top:10px;">이 버전 선택</button>
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-pick]').forEach(btn=>{
+    btn.onclick = ()=> selectGenVariant(parseInt(btn.dataset.pick,10));
+  });
+}
+function selectGenVariant(idx){
+  const v = GEN_VARIANTS[idx];
+  const {config} = GEN_VARIANT_INPUT;
+  GENSTATE = { config, days:v.days, subjects:v.subjects, subjectsMap:v.subjectsMap, students:v.students, teachers:v.teachers,
+    subjectSlot:v.subjectSlot, unplaced:v.unplaced, subjectsBySlot:v.subjectsBySlot, roomAssign:v.roomAssign,
+    roomConflicts:v.roomConflicts, proctorAssign:v.proctorAssign, manualOverrides:{}, manualRoomOverrides:{} };
+  document.getElementById('versionPickModalBg').hidden = true;
+  document.getElementById('statusTag').textContent = `${config.semester}학기 ${config.examType}고사 · 과목 ${v.subjects.length}개 (버전 ${idx+1})`;
   document.getElementById('genExportBtn').style.display = 'block';
   document.getElementById('shareBox').style.display = 'block';
   renderGenStat(); renderGenAll();
   saveScheduleToHistory();
-  if(unplaced.size){
-    const names = [...unplaced].map(id=>subjectsMap[id]?.subject).filter(Boolean).join(', ');
-    alert(`하루 최대 ${maxPerDay}과목 · ${days.length}일 조건으로는 ${unplaced.size}개 과목을 배정하지 못했습니다:\n${names}\n\n"충돌 · 수동 배정" 탭에서 확인하고, 왼쪽의 "학생 1일 최대 응시 과목 수"를 늘리거나 시험 기간을 늘려서 다시 생성해보세요.`);
+  if(v.unplaced.size){
+    const names = [...v.unplaced].map(id=>v.subjectsMap[id]?.subject).filter(Boolean).join(', ');
+    alert(`하루 최대 ${config.maxPerDay}과목 · ${v.days.length}일 조건으로는 ${v.unplaced.size}개 과목을 배정하지 못했습니다:\n${names}\n\n"충돌 · 수동 배정" 탭에서 확인하고, 왼쪽의 "학생 1일 최대 응시 과목 수"를 늘리거나 시험 기간을 늘려서 다시 생성해보세요.`);
   }
 }
 // 학생별로 하루에 몇 과목까지 몰리는지 집계 (예: 3과목 허용 시 실제로 3과목을 보는 학생이 몇 명인지)
@@ -1802,6 +1907,8 @@ function renderHistoryList(){
     };
   });
 }
+document.getElementById('versionPickModalBg').addEventListener('click', ev=>{ if(ev.target.id==='versionPickModalBg') ev.currentTarget.hidden = true; });
+document.getElementById('versionPickRegenBtn').onclick = ()=> runGenPipeline();
 document.getElementById('historyBtn').onclick = ()=>{ renderHistoryList(); renderCloudList(); document.getElementById('historyModalBg').hidden = false; };
 document.getElementById('historyCloseBtn').onclick = ()=>{ document.getElementById('historyModalBg').hidden = true; };
 document.getElementById('historyModalBg').addEventListener('click', ev=>{ if(ev.target.id==='historyModalBg') ev.currentTarget.hidden = true; });
