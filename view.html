@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>정기시험 시간표</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+:root{
+  --bg:#f2f1ec; --panel:#ffffff; --ink:#1c1d1b; --sub:#5f6158; --line:#dcdad0;
+  --accent:#a8432d; --accent-ink:#ffffff; --grid:#eceae2; --chip:#efece2;
+  --font-display:'Space Grotesk',sans-serif; --font-body:'Noto Sans KR',sans-serif; --font-mono:'JetBrains Mono',monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#17181a; --panel:#1f2123; --ink:#eceae4; --sub:#a3a49b; --line:#33352f; --grid:#26282a; --chip:#26282a; --accent:#e0714f; --accent-ink:#1a1200; color-scheme:dark; }
+}
+*{box-sizing:border-box;}
+body{background:var(--bg);color:var(--ink);font-family:var(--font-body);margin:0;padding:0 16px;}
+h1,h2,h3{font-family:var(--font-display);font-weight:700;margin:0;}
+.wrap{max-width:1100px;margin:0 auto;padding:20px 0 60px;}
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--line);}
+.top .logo{height:40px;width:40px;object-fit:contain;border-radius:8px;}
+.top h1{font-size:1.3rem;}
+.small{font-size:.75rem;color:var(--sub);}
+.modetabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+.modetab{padding:8px 16px;border:1px solid var(--line);border-radius:20px;font-size:.85rem;font-weight:500;cursor:pointer;color:var(--sub);}
+.modetab.active{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+.daytabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.daytab{font-family:var(--font-mono);font-size:.78rem;padding:6px 11px;border:1px solid var(--line);border-radius:7px;cursor:pointer;color:var(--sub);background:var(--panel);}
+.daytab.active{background:var(--ink);color:var(--bg);border-color:var(--ink);}
+table.grid{border-collapse:collapse;width:100%;font-size:.8rem;table-layout:fixed;}
+table.grid th,table.grid td{border:1px solid var(--line);padding:7px;vertical-align:top;}
+table.grid th{background:var(--grid);font-weight:700;font-size:.75rem;text-align:center;color:var(--sub);}
+table.grid td{min-height:70px;background:var(--panel);}
+.pill{background:var(--chip);border-radius:8px;padding:5px 7px;font-size:.75rem;line-height:1.4;margin-bottom:4px;}
+.pill b{font-weight:700;}
+.pill small{color:var(--sub);display:block;font-family:var(--font-mono);font-size:.66rem;}
+.emptystate{padding:60px 20px;text-align:center;color:var(--sub);font-size:.9rem;}
+.meta{font-family:var(--font-mono);font-size:.72rem;color:var(--sub);margin-bottom:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <img src="logo.jpeg" alt="학교 로고" class="logo" onerror="this.style.display='none'">
+    <h1>정기시험 시간표</h1>
+  </div>
+  <div id="content"><div class="emptystate">시간표를 불러오는 중…</div></div>
+</div>
+<script>
+let DATA = null;
+let gradeFilter = 'all';
+let currentDay = null;
+
+fetch('schedule-data.json?_=' + Date.now())
+  .then(r=>{ if(!r.ok) throw new Error('not found'); return r.json(); })
+  .then(d=>{ DATA = d; currentDay = d.days[0]; render(); })
+  .catch(()=>{
+    document.getElementById('content').innerHTML =
+      '<div class="emptystate">아직 공개된 시간표가 없습니다.<br><span class="small">schedule-data.json이 이 페이지와 같은 위치에 있어야 합니다.</span></div>';
+  });
+
+function render(){
+  const el = document.getElementById('content');
+  const grades = new Set();
+  Object.values(DATA.subjects).forEach(s=> s.grades.forEach(g=>grades.add(g)));
+  const gradeList = [...grades].sort();
+
+  let html = '<div class="meta">생성: ' + new Date(DATA.generatedAt).toLocaleString('ko-KR') + '</div>';
+  html += '<div class="modetabs">' +
+    '<div class="modetab ' + (gradeFilter==='all'?'active':'') + '" data-g="all">전체 시간표</div>' +
+    gradeList.map(g=>'<div class="modetab ' + (gradeFilter===String(g)?'active':'') + '" data-g="' + g + '">' + g + '학년 시간표</div>').join('') +
+    '</div>';
+  html += '<div class="daytabs">' + DATA.days.map(d=>
+    '<div class="daytab ' + (d===currentDay?'active':'') + '" data-day="' + d + '">' + DATA.dayLabels[d] + '</div>'
+  ).join('') + '</div>';
+
+  html += '<div style="overflow-x:auto;"><table class="grid"><thead><tr><th style="width:80px;">강의실</th>' +
+    DATA.periods.map(p=>'<th>' + p.no + '교시<br><span style="font-weight:400;">' + p.time + '</span></th>').join('') +
+    '</tr></thead><tbody>';
+  DATA.rooms.forEach(room=>{
+    html += '<tr><th>' + room.name + '<br><span style="font-weight:400;">' + room.cap + '명</span></th>';
+    DATA.periods.forEach(p=>{
+      const key = currentDay + '_' + p.no;
+      const rooms = DATA.slots[key] || [];
+      const match = rooms.find(r=>r.name===room.name);
+      html += '<td>';
+      if(match){
+        const items = gradeFilter==='all' ? match.items : match.items.filter(it=>{
+          const s = DATA.subjects[it.subjId];
+          return s && s.grades.includes(parseInt(gradeFilter,10));
+        });
+        html += items.map(it=>{
+          const s = DATA.subjects[it.subjId];
+          const name = s.block ? s.subject + '(' + s.block + ')' : s.subject;
+          return '<div class="pill"><b>' + name + '</b><small>' + s.gradeLabel + '학년 · ' + s.teacher + ' · ' + it.count + '명</small></div>';
+        }).join('');
+      }
+      html += '</td>';
+    });
+    html += '</tr>';
+  });
+  html += '</tbody></table></div>';
+  el.innerHTML = html;
+
+  el.querySelectorAll('[data-g]').forEach(t=> t.onclick = ()=>{ gradeFilter = t.dataset.g; render(); });
+  el.querySelectorAll('[data-day]').forEach(t=> t.onclick = ()=>{ currentDay = t.dataset.day; render(); });
+}
+</script>
+</body>
+</html>

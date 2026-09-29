@@ -185,6 +185,8 @@ table.teach th,table.teach td{border-bottom:1px solid var(--line);padding:6px 8p
       </div>
       <button class="primary" id="genRunBtn" disabled>시간표 생성</button>
       <button class="ghost" id="genExportBtn" style="width:100%;margin-top:8px;display:none;">엑셀로 내보내기</button>
+      <button class="ghost" id="genShareBtn" style="width:100%;margin-top:6px;display:none;">공유용 데이터 내보내기 (schedule-data.json)</button>
+      <div class="small" id="shareHint" style="display:none;margin-top:4px;">내려받은 파일을 저장소의 <code>schedule-data.json</code>으로 올려두면 <b>공유 링크</b>가 최신 시간표를 보여줍니다.</div>
       <div class="stat" id="genStatBox" style="margin-top:12px;"></div>
     </div>
 
@@ -828,6 +830,8 @@ function classifySubjectFamily(name){
   for(const fam of SUBJECT_FAMILIES){ if(fam.keywords.some(k=>name.includes(k))) return fam.name; }
   return null;
 }
+// 시간표에 표시할 이름: "과목명(블록)" 형식 — 예: AP 통계학 I(D1,D2,K), 공통국어 2(A1)
+function subjectDisplayName(s){ return s.block ? `${s.subject}(${s.block})` : s.subject; }
 function buildGenNodes(subjectsIn){
   // 필수 선택 블록(예: 1학년 I2)에 제2외국어 과목이 섞여 있으면, 그 블록 전체를 하나로 묶는다
   // (제2외국어 개별 묶음으로 따로 떼어내지 않음 — 실제로 같은 교시·강의실에서 함께 치러짐).
@@ -1135,6 +1139,8 @@ function runGenPipeline(){
     subjectSlot, unplaced, subjectsBySlot, roomAssign, roomConflicts, proctorAssign, manualOverrides:{}, manualRoomOverrides:{} };
   document.getElementById('statusTag').textContent = `${semester}학기 ${examType}고사 · 과목 ${grouped.length}개`;
   document.getElementById('genExportBtn').style.display = 'block';
+  document.getElementById('genShareBtn').style.display = 'block';
+  document.getElementById('shareHint').style.display = 'block';
   renderGenStat(); renderGenAll();
   if(unplaced.size){
     const names = [...unplaced].map(id=>subjectsMap[id]?.subject).filter(Boolean).join(', ');
@@ -1229,7 +1235,7 @@ function genPillHtml(sid, room, slotKey){
   const roomCount = item ? item.count : s.count;
   const splitNote = roomCount!==s.count ? ` <span class="small">(전체 ${s.count}명 중 분반)</span>` : '';
   return `<div class="pill" data-subj="${sid}" data-room="${room.name}" data-slotkey="${slotKey||''}" style="cursor:pointer;">` +
-    `<b>${s.subject}</b><small>${s.gradeLabel}학년 · ${s.teacher} · ${room.name} ${roomCount}명${splitNote}</small></div>`;
+    `<b>${subjectDisplayName(s)}</b><small>${s.gradeLabel}학년 · ${s.teacher} · ${room.name} ${roomCount}명${splitNote}</small></div>`;
 }
 function bindGenPillClicks(pane){
   pane.querySelectorAll('.pill[data-subj]').forEach(el=>{
@@ -1264,10 +1270,10 @@ function renderGenStudentCard(stu){
     }
     return {s, slot, room};
   }).filter(Boolean).sort((a,b)=>{ if(!a.slot) return 1; if(!b.slot) return -1; return a.slot.day.localeCompare(b.slot.day)||a.slot.period-b.slot.period; });
-  const copyText = `${stu.name} (${stu.id}) 시간표\n` + rows.map(r=>`${r.slot?dayLabelFromDate(r.slot.day)+' '+r.slot.period+'교시':'미배정'} | ${r.s.subject} | ${r.room}`).join('\n');
+  const copyText = `${stu.name} (${stu.id}) 시간표\n` + rows.map(r=>`${r.slot?dayLabelFromDate(r.slot.day)+' '+r.slot.period+'교시':'미배정'} | ${subjectDisplayName(r.s)} | ${r.room}`).join('\n');
   return `<div class="studentcard"><h3 style="font-size:1rem;">${stu.name} <span class="small">${stu.grade}학년 · 학번 ${stu.id}</span></h3>
     <table><thead><tr><th>날짜</th><th>교시</th><th>과목</th><th>강의실</th></tr></thead><tbody>${rows.map(r=>`
-      <tr><td>${r.slot?dayLabelFromDate(r.slot.day):'<span class="badge bad">미배정</span>'}</td><td>${r.slot?r.slot.period+'교시':'-'}</td><td>${r.s.subject}</td><td>${r.room}</td></tr>`).join('')}</tbody></table>
+      <tr><td>${r.slot?dayLabelFromDate(r.slot.day):'<span class="badge bad">미배정</span>'}</td><td>${r.slot?r.slot.period+'교시':'-'}</td><td>${subjectDisplayName(r.s)}</td><td>${r.room}</td></tr>`).join('')}</tbody></table>
     <button class="ghost" style="margin-top:8px;" data-copy="${copyText.replace(/"/g,'&quot;')}">시간표 복사</button></div>`;
 }
 function renderGenDraft(){
@@ -1279,7 +1285,7 @@ function renderGenDraft(){
   html += '<div class="small" style="margin-bottom:6px;">아래 트레이의 카드를 시간표 칸으로 드래그하면 수동으로 재배정됩니다.</div>';
   html += `<div class="trayrow" id="genTray">`;
   if(!trayIds.size) html += '<span class="small">충돌 없음 — 모든 과목이 정상 배정되었습니다.</span>';
-  html += [...trayIds].map(id=>{ const s=GENSTATE.subjectsMap[id]; if(!s) return ''; return `<div class="pill bad" draggable="true" data-subj="${id}"><b>${s.subject}</b><small>${s.gradeLabel}학년·${s.teacher}·${s.count}명</small></div>`; }).join('');
+  html += [...trayIds].map(id=>{ const s=GENSTATE.subjectsMap[id]; if(!s) return ''; return `<div class="pill bad" draggable="true" data-subj="${id}"><b>${subjectDisplayName(s)}</b><small>${s.gradeLabel}학년·${s.teacher}·${s.count}명</small></div>`; }).join('');
   // (트레이 카드는 특정 강의실이 없으므로 클릭 시 전체 명단만 보여줌 — 바인딩은 아래 공통 처리에서)
   html += `</div>`;
   if(!genCurrentDay) genCurrentDay = GENSTATE.days[0];
@@ -1294,7 +1300,7 @@ function renderGenDraft(){
         html += match.subjIds.map(sid=>{
           const s=GENSTATE.subjectsMap[sid]; const bad=trayIds.has(sid);
           const item=(match.items||[]).find(it=>it.subjId===sid); const roomCount = item?item.count:s.count;
-          return `<div class="pill ${bad?'bad':''}" draggable="true" data-subj="${sid}" data-room="${room.name}" data-slotkey="${key}"><b>${s.subject}</b><small>${s.gradeLabel}학년·${room.name} ${roomCount}명</small></div>`;
+          return `<div class="pill ${bad?'bad':''}" draggable="true" data-subj="${sid}" data-room="${room.name}" data-slotkey="${key}"><b>${subjectDisplayName(s)}</b><small>${s.gradeLabel}학년·${room.name} ${roomCount}명</small></div>`;
         }).join('');
       }
       html += `</td>`;
@@ -1413,6 +1419,32 @@ function exportGenSchedule(){
   XLSX.utils.book_append_sheet(wb, ws, '생성된시간표'.slice(0,28));
   XLSX.writeFile(wb, `생성된_시험시간표.xlsx`);
 }
+// 학생·교사에게 공유할 때 쓰는 읽기 전용 화면(view.html)이 읽어가는 데이터 파일.
+// 내려받은 뒤 저장소의 schedule-data.json으로 올려두면 공유 링크가 최신 시간표를 보여준다.
+function exportGenShareData(){
+  if(!GENSTATE) return;
+  const subjects = {};
+  GENSTATE.subjects.forEach(s=>{ subjects[s.id] = { subject:s.subject, block:s.block, teacher:s.teacher, gradeLabel:s.gradeLabel, grades:[...s.grades], count:s.count }; });
+  const slots = {};
+  GENSTATE.days.forEach(day=> PERIODS.forEach(p=>{
+    const key = `${day}_${p.no}`;
+    const rooms = (GENSTATE.roomAssign[key]||[]).map(r=>({ name:r.name, cap:r.cap, items:(r.items||[]).map(it=>({subjId:it.subjId, count:it.count})) }));
+    if(rooms.length) slots[key] = rooms;
+  }));
+  const data = {
+    generatedAt: new Date().toISOString(),
+    days: GENSTATE.days,
+    dayLabels: Object.fromEntries(GENSTATE.days.map(d=>[d, dayLabelFromDate(d)])),
+    periods: PERIODS,
+    rooms: ROOMS,
+    subjects, slots,
+  };
+  const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'schedule-data.json'; a.click();
+  URL.revokeObjectURL(url);
+}
 
 /* ================= 모드 전환 + 파일 자동 감지 ================= */
 document.querySelectorAll('.genpane').forEach(()=>{});
@@ -1474,6 +1506,7 @@ document.getElementById('resetBtn').onclick = ()=>{
   }
 };
 document.getElementById('genExportBtn').onclick = exportGenSchedule;
+document.getElementById('genShareBtn').onclick = exportGenShareData;
 
 // 최적화 모드 업로더도 원자료 파일이 들어오면 생성 모드로 자동 전환
 fileBtn.addEventListener('drop', e=>{}, true); // no-op placeholder to keep listener order stable
@@ -1496,7 +1529,7 @@ function openStudentRosterModal(subjId, roomName, slotKey){
   const s = GENSTATE.subjectsMap[subjId]; if(!s) return;
   const title = document.getElementById('rosterTitle');
   const body = document.getElementById('rosterBody');
-  title.textContent = `${s.subject} (${s.gradeLabel}학년) · ${s.teacher}`;
+  title.textContent = `${subjectDisplayName(s)} (${s.gradeLabel}학년) · ${s.teacher}`;
   // 강의실이 분반된 경우 그 강의실에 실제 배정된 학생만 보여준다(과목 전체 수강생이 아니라).
   let roomItem = null;
   if(roomName && slotKey){
