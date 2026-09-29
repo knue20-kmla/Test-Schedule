@@ -4,12 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>정기시험 시간표</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Noto+Sans+KR:wght@400;500;700&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
 <style>
 :root{
   --bg:#dbe5f3; --panel:#ffffff; --ink:#0f2038; --sub:#4d6688; --line:#c1d1e6;
   --accent:#123a68; --accent-ink:#ffffff; --grid:#cedeef; --chip:#d3e1f1;
-  --font-display:'Space Grotesk',sans-serif; --font-body:'Noto Sans KR',sans-serif; --font-mono:'JetBrains Mono',monospace;
+  --font-display:'Pretendard','Noto Sans KR',sans-serif; --font-body:'Pretendard','Noto Sans KR',sans-serif; --font-mono:'JetBrains Mono',monospace;
   --bg-grad-a:#b9d0ef; --bg-grad-b:#e7eefa; --line-strong:#9db3d4;
   color-scheme:light;
 }
@@ -25,14 +26,14 @@ h1,h2,h3{font-family:var(--font-display);font-weight:700;margin:0;}
 .top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--line);}
 .top .logo{height:60px;width:60px;object-fit:contain;border-radius:12px;box-shadow:0 3px 10px rgba(10,30,60,.18);}
 .brand-text{display:flex;flex-direction:column;gap:3px;}
-.brand-text .eyebrow{font-family:var(--font-mono);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;color:var(--sub);}
+.brand-text .eyebrow{font-family:var(--font-body);font-weight:700;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--sub);}
 .top h1{font-size:2rem;font-weight:800;letter-spacing:-0.02em;line-height:1.1;background:linear-gradient(135deg, var(--ink) 20%, var(--accent) 110%);-webkit-background-clip:text;background-clip:text;color:transparent;}
 .small{font-size:.75rem;color:var(--sub);}
 .modetabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
-.modetab{padding:8px 16px;border:1px solid var(--line);border-radius:20px;font-size:.85rem;font-weight:600;cursor:pointer;color:var(--sub);background:var(--panel);transition:background .12s,color .12s,border-color .12s;}
+.modetab{font-family:var(--font-body);padding:8px 16px;border:1.5px solid var(--line-strong);border-radius:20px;font-size:.88rem;font-weight:700;cursor:pointer;color:var(--ink);background:var(--panel);transition:background .12s,color .12s,border-color .12s;}
 .modetab.active{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);}
 .daytabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
-.daytab{font-family:var(--font-mono);font-size:.78rem;padding:6px 12px;border:1px solid var(--line);border-radius:7px;cursor:pointer;color:var(--sub);background:var(--panel);font-weight:600;transition:background .12s,color .12s,border-color .12s;}
+.daytab{font-family:var(--font-body);font-size:.8rem;padding:6px 12px;border:1px solid var(--line);border-radius:7px;cursor:pointer;color:var(--sub);background:var(--panel);font-weight:700;transition:background .12s,color .12s,border-color .12s;}
 .daytab.active{background:var(--ink);color:var(--bg);border-color:var(--ink);}
 .tablewrap{overflow-x:auto;border:1.5px solid var(--line-strong);border-radius:14px;box-shadow:0 4px 16px rgba(10,30,60,.12);background:var(--panel);}
 table.grid{border-collapse:separate;border-spacing:0;width:100%;font-size:.8rem;table-layout:fixed;}
@@ -47,7 +48,7 @@ table.grid .pno{display:block;font-family:var(--font-display);font-weight:800;fo
 table.grid .ptime{display:block;font-family:var(--font-mono);font-size:.64rem;color:var(--sub);margin-top:2px;}
 table.grid .roomcol{width:88px;background:var(--grid);text-align:left;border-right:2px solid var(--line-strong);}
 table.grid .roomname{display:block;font-family:var(--font-display);font-weight:700;font-size:.86rem;color:var(--ink);}
-table.grid .roomcap{display:inline-block;font-family:var(--font-mono);font-size:.62rem;color:var(--sub);margin-top:3px;background:var(--panel);border:1px solid var(--line-strong);border-radius:20px;padding:1px 7px;}
+table.grid .roomcap{display:inline-block;font-family:var(--font-body);font-weight:600;font-size:.66rem;color:var(--sub);margin-top:3px;background:var(--panel);border:1px solid var(--line-strong);border-radius:20px;padding:1px 7px;}
 table.grid .roomcol-big .roomname{color:var(--accent);}
 table.grid tbody tr:nth-child(even) td{background:var(--grid);}
 table.grid td{min-height:74px;background:var(--panel);}
@@ -55,7 +56,7 @@ table.grid tbody tr:last-child th:first-child{border-bottom-left-radius:13px;}
 .pill{background:var(--panel);border-radius:9px;padding:7px 10px 8px;font-size:.76rem;line-height:1.4;margin-bottom:6px;border:1px solid var(--line-strong);border-left:3px solid var(--accent);box-shadow:0 1px 3px rgba(10,30,60,.1);}
 .pill:last-child{margin-bottom:0;}
 .pill b{font-weight:700;display:block;margin-bottom:1px;color:var(--ink);font-size:.79rem;}
-.pill small{color:var(--sub);display:block;font-family:var(--font-mono);font-size:.66rem;line-height:1.5;}
+.pill small{color:var(--sub);display:block;font-family:var(--font-body);font-weight:500;font-size:.72rem;line-height:1.55;}
 .emptystate{padding:60px 20px;text-align:center;color:var(--sub);font-size:.9rem;}
 .pill{cursor:pointer;}
 .modalbg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px;}
@@ -66,7 +67,7 @@ table.grid tbody tr:last-child th:first-child{border-bottom-left-radius:13px;}
 .rosterlist th,.rosterlist td{padding:5px 6px;border-bottom:1px solid var(--line);text-align:left;}
 .ghostbtn{background:transparent;border:1px solid var(--line);color:var(--ink);border-radius:8px;padding:6px 10px;font-size:.78rem;cursor:pointer;font-family:var(--font-body);}
 .ghostbtn:hover{border-color:var(--accent);color:var(--accent);}
-.meta{font-family:var(--font-mono);font-size:.72rem;color:var(--sub);margin-bottom:14px;}
+.meta{font-family:var(--font-body);font-weight:500;font-size:.75rem;color:var(--sub);margin-bottom:14px;}
 </style>
 </head>
 <body>
