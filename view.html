@@ -47,11 +47,12 @@ table.grid thead th:last-child{border-top-right-radius:13px;}
 table.grid thead th.roomcol{background:color-mix(in srgb, var(--panel) 78%, var(--accent) 22%);}
 table.grid .pno{display:block;font-family:var(--font-display);font-weight:800;font-size:.85rem;color:var(--accent);letter-spacing:.01em;}
 table.grid .ptime{display:block;font-family:var(--font-mono);font-size:.64rem;color:var(--sub);margin-top:2px;}
-table.grid .roomcol{width:88px;background:var(--grid);text-align:left;border-right:2px solid var(--line-strong);}
+table.grid .roomcol{width:88px;text-align:left;border-right:2px solid var(--line-strong);}
 table.grid .roomname{display:block;font-family:var(--font-display);font-weight:700;font-size:.86rem;color:var(--ink);}
 table.grid .roomcap{display:inline-block;font-family:var(--font-body);font-weight:600;font-size:.66rem;color:var(--sub);margin-top:3px;background:var(--panel);border:1px solid var(--line-strong);border-radius:20px;padding:1px 7px;}
 table.grid .roomcol-big .roomname{color:var(--accent);}
-table.grid tbody tr:nth-child(even) td{background:var(--grid);}
+table.grid tbody th.roomcol{background:var(--panel);}
+table.grid tbody tr:nth-child(even) td,table.grid tbody tr:nth-child(even) th.roomcol{background:var(--grid);}
 table.grid td{min-height:74px;background:var(--panel);}
 table.grid tbody tr:last-child th:first-child{border-bottom-left-radius:13px;}
 .pill{background:var(--panel);border-radius:9px;padding:7px 10px 8px;font-size:.76rem;line-height:1.4;margin-bottom:6px;border:1px solid var(--line-strong);border-left:3px solid var(--accent);box-shadow:0 1px 3px rgba(10,30,60,.1);}

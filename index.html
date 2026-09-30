@@ -67,11 +67,12 @@ table.grid thead th:last-child{border-top-right-radius:13px;}
 table.grid thead th.roomcol{background:color-mix(in srgb, var(--panel) 78%, var(--accent) 22%);}
 table.grid .pno{display:block;font-family:var(--font-display);font-weight:800;font-size:.8rem;color:var(--accent);}
 table.grid .ptime{display:block;font-family:var(--font-mono);font-size:.6rem;color:var(--sub);margin-top:1px;}
-table.grid .roomcol{width:78px;background:var(--grid);text-align:left;border-right:2px solid var(--line-strong);}
+table.grid .roomcol{width:78px;text-align:left;border-right:2px solid var(--line-strong);}
 table.grid .roomname{display:block;font-family:var(--font-display);font-weight:700;font-size:.82rem;color:var(--ink);}
 table.grid .roomcap{display:inline-block;font-family:var(--font-body);font-weight:600;font-size:.64rem;color:var(--sub);margin-top:3px;background:var(--panel);border:1px solid var(--line-strong);border-radius:20px;padding:1px 6px;}
 table.grid .roomcol-big .roomname{color:var(--accent);}
-table.grid tbody tr:nth-child(even) td{background:var(--grid);}
+table.grid tbody th.roomcol{background:var(--panel);}
+table.grid tbody tr:nth-child(even) td,table.grid tbody tr:nth-child(even) th.roomcol{background:var(--grid);}
 table.grid td{height:80px;background:var(--panel);}
 table.grid tbody tr:last-child th:first-child{border-bottom-left-radius:13px;}
 table.grid tr:hover td{background:color-mix(in srgb, var(--panel) 88%, var(--accent) 12%);}
