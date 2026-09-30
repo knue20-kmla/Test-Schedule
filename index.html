@@ -1616,6 +1616,25 @@ function renderGenDraft(){
           alert(`이동할 수 없습니다. 그 시간에 이미 배정된 다음 과목과 수강생이 겹칩니다:\n${detail}`);
           return;
         }
+        // 원칙: 1학년은 하루 최대 2과목까지만 응시할 수 있다(자동 생성과 동일한 원칙을 수동 이동에도 적용).
+        // 옮기려는 과목의 1학년 수강생 중, 옮길 날짜에 이미 2과목이 있어 3과목째가 되는 학생이 있으면 막는다.
+        const g1Overflow = [];
+        s.students.forEach(sid=>{
+          const stu = GENSTATE.students[sid];
+          if(!stu || stu.grade!==1) return;
+          let cnt = 0;
+          GENSTATE.subjects.forEach(other=>{
+            if(other.id===subjId) return;
+            const slot = genEffectiveSlot(other.id);
+            if(slot && slot.day===targetDay && other.students.has(sid)) cnt++;
+          });
+          if(cnt>=2) g1Overflow.push(stu.name);
+        });
+        if(g1Overflow.length){
+          const names = g1Overflow.slice(0,10).join(', ') + (g1Overflow.length>10 ? ` 외 ${g1Overflow.length-10}명` : '');
+          alert(`이동할 수 없습니다. 1학년은 하루 최대 2과목까지만 응시할 수 있는데, 다음 학생은 그 날짜에 이미 2과목이 있어 3과목째가 됩니다:\n${names}`);
+          return;
+        }
         // 예전 강의실 고정은 의미가 없으니 풀고, 새 교시에서 자동 배정에 맡긴다.
         GENSTATE.manualOverrides[subjId] = {day:targetDay, period:targetPeriod};
         delete GENSTATE.manualRoomOverrides[subjId];
