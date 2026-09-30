@@ -269,6 +269,7 @@ table.teach thead th,.rosterlist thead th{border-bottom:2px solid var(--accent);
       </div>
       <button class="primary" id="genRunBtn" disabled>시간표 생성</button>
       <button class="ghost" id="genExportBtn" style="width:100%;margin-top:8px;display:none;">엑셀로 내보내기</button>
+      <button class="ghost" id="genExportAnnounceBtn" style="width:100%;margin-top:6px;display:none;">📋 공지문 형식으로 내보내기</button>
       <button class="ghost" id="versionSwitchBtn" style="width:100%;margin-top:6px;display:none;">🔀 다른 버전으로 바꾸기</button>
       <div id="shareBox" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);">
         <label>학생 공유 — 짧은 고정 주소</label>
@@ -1384,6 +1385,7 @@ function selectGenVariant(idx){
   document.getElementById('versionPickModalBg').hidden = true;
   document.getElementById('statusTag').textContent = `${config.semester}학기 ${config.examType}고사 · 과목 ${v.subjects.length}개 (버전 ${idx+1})`;
   document.getElementById('genExportBtn').style.display = 'block';
+  document.getElementById('genExportAnnounceBtn').style.display = 'block';
   document.getElementById('shareBox').style.display = 'block';
   document.getElementById('versionSwitchBtn').style.display = GEN_VARIANTS.length>1 ? 'block' : 'none';
   const banner = document.getElementById('versionSwitchBanner');
@@ -1690,6 +1692,90 @@ function exportGenSchedule(){
   XLSX.utils.book_append_sheet(wb, ws, '생성된시간표'.slice(0,28));
   XLSX.writeFile(wb, `생성된_시험시간표.xlsx`);
 }
+// 학교에서 실제로 게시하는 "Mid-term/Final Test Schedule" 공지문 양식 그대로 내보낸다
+// (날짜/교시/응시인원/진행교사 칸을 교시 단위로 병합하는 실제 양식을 그대로 재현).
+function gradeCountOf(s, grade){
+  let c=0; s.students.forEach(sid=>{ const st=GENSTATE.students[sid]; if(st && st.grade===grade) c++; });
+  return c;
+}
+function announcementDayLabel(dstr){
+  const d=new Date(dstr+'T00:00:00'); const w=['일','월','화','수','목','금','토'][d.getDay()];
+  return `${d.getDate()}일\r\n(${w})`;
+}
+const GRADE_ORDINAL_EN = {1:'10th',2:'11th',3:'12th'};
+function exportGenAnnouncement(){
+  if(!GENSTATE) return;
+  const cfg = GENSTATE.config;
+  const examTypeEn = cfg.examType==='기말' ? 'Final' : 'Mid-term';
+  const wb = XLSX.utils.book_new();
+  const gradesPresent = [...new Set(GENSTATE.subjects.flatMap(s=>[...s.grades]))].filter(g=>[1,2,3].includes(g)).sort();
+  gradesPresent.forEach(grade=>{
+    const header = ['날짜\r\nDate','교시\r\nPeriod','과목\r\nSubject','담당교사\r\nTeacher','통합기호\r\nModule','단위\r\nUnit',
+      '소요시간(분)\r\nRequired Time','시험시간\r\nTest Time','진행교사\r\nSupervisor',
+      '응시인원 및 과목별 고사장소\r\nApplied Students / Test Place','인원','1학년','2학년','3학년'];
+    const title = `${cfg.semester}학기 ${cfg.examType}고사 ${grade}학년 시간표 (${examTypeEn} Test Schedule for ${GRADE_ORDINAL_EN[grade]||grade+'th'} Grade)`;
+    const aoa = [
+      [title],
+      [],
+      ['* 고사본부(Headquarters) - 고사장소가 다산관, 충무관일 경우 충무관 1층 교무부 (DAA, 1st Floor in Choongmoo B/D)'],
+      ['* 고사본부(Headquarters) - 고사장소가 덕고관(기숙사) 일 경우 덕고관(기숙사) 2층 혼정실 (2nd Floor in Dormitory)'],
+      header,
+    ];
+    const merges = [
+      {s:{r:0,c:0}, e:{r:0,c:header.length-1}},
+      {s:{r:1,c:0}, e:{r:1,c:header.length-1}},
+      {s:{r:2,c:0}, e:{r:2,c:header.length-1}},
+      {s:{r:3,c:0}, e:{r:3,c:header.length-1}},
+    ];
+    let rowIdx = 5; // aoa에 이미 5줄(제목/공백/안내2줄/헤더)이 있으니 다음 데이터는 6번째 줄(0-idx 5)부터
+    GENSTATE.days.forEach(day=>{
+      const dayStartRow = rowIdx;
+      PERIODS.forEach(p=>{
+        const key = `${day}_${p.no}`;
+        const roomsHere = GENSTATE.roomAssign[key]||[];
+        if(!roomsHere.length) return;
+        const subjIdsInSlot = [...new Set(roomsHere.flatMap(r=>r.subjIds))];
+        const subjsForGrade = subjIdsInSlot.map(id=>GENSTATE.subjectsMap[id]).filter(s=>s && s.grades.has(grade));
+        if(!subjsForGrade.length) return;
+        const periodStartRow = rowIdx;
+        // 진행교사(그 교시에 실제 쓰인 모든 강의실 기준 — 다른 학년 과목이 같이 있어도 강의실은 공통이라 그대로 표기)
+        const proctorLines = roomsHere.map(r=>{
+          const pa=(GENSTATE.proctorAssign[key]||{})[r.name];
+          return `${r.name}회의실 : ${pa && pa.teachers.length?pa.teachers.join(', '):'-'}`;
+        }).join('\r\n');
+        // 응시인원 및 과목별 고사장소(강의실별로 묶어서 표기)
+        const placeLines = roomsHere.map(r=>{
+          const items=(r.items||[]).map(it=>`${GENSTATE.subjectsMap[it.subjId]?.subject||''}-${it.count}`).join(', ');
+          return items ? `• ${items} (${r.name}회의실)` : null;
+        }).filter(Boolean).join('\r\n');
+        subjsForGrade.forEach((s,i)=>{
+          aoa.push([
+            i===0 ? announcementDayLabel(day) : '',
+            i===0 ? p.no : '',
+            s.subject, String(s.teacher||'').split(/,\s*/).join('\r\n'), s.block, s.unit||'',
+            i===0 ? 50 : '',
+            i===0 ? p.time : '',
+            i===0 ? proctorLines : '',
+            i===0 ? placeLines : '',
+            s.count, gradeCountOf(s,1)||'', gradeCountOf(s,2)||'', gradeCountOf(s,3)||'',
+          ]);
+        });
+        if(subjsForGrade.length>1){
+          [1,6,7,8,9].forEach(col=>{
+            merges.push({s:{r:periodStartRow,c:col}, e:{r:periodStartRow+subjsForGrade.length-1,c:col}});
+          });
+        }
+        rowIdx += subjsForGrade.length;
+      });
+      if(rowIdx-1 > dayStartRow) merges.push({s:{r:dayStartRow,c:0}, e:{r:rowIdx-1,c:0}});
+    });
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    ws['!merges'] = merges;
+    ws['!cols'] = [{wch:8},{wch:6},{wch:18},{wch:14},{wch:10},{wch:6},{wch:9},{wch:11},{wch:24},{wch:36},{wch:6},{wch:6},{wch:6},{wch:6}];
+    XLSX.utils.book_append_sheet(wb, ws, `${grade}학년 시간표`);
+  });
+  XLSX.writeFile(wb, `${cfg.semester}학기_${cfg.examType}고사_시간표_공지문.xlsx`);
+}
 // 학생·교사에게 공유할 때 쓰는 읽기 전용 화면(view.html)이 읽어가는 데이터 파일.
 // 내려받은 뒤 저장소의 schedule-data.json으로 올려두면 공유 링크가 최신 시간표를 보여준다.
 function buildShareData(){
@@ -1848,6 +1934,7 @@ document.getElementById('resetBtn').onclick = ()=>{
   }
 };
 document.getElementById('genExportBtn').onclick = exportGenSchedule;
+document.getElementById('genExportAnnounceBtn').onclick = exportGenAnnouncement;
 document.getElementById('genShareBtn').onclick = exportGenShareData;
 document.getElementById('genShareLinkBtn').onclick = makeGenShareLink;
 document.getElementById('ghPublishBtn').onclick = publishScheduleToRepo;
@@ -2037,6 +2124,7 @@ function restoreFullState(data){
   document.getElementById('versionSwitchBanner').style.display = 'none';
   document.getElementById('statusTag').textContent = `${GENSTATE.config.semester}학기 ${GENSTATE.config.examType}고사 · 과목 ${GENSTATE.subjects.length}개 (불러옴)`;
   document.getElementById('genExportBtn').style.display = 'block';
+  document.getElementById('genExportAnnounceBtn').style.display = 'block';
   document.getElementById('shareBox').style.display = 'block';
   renderGenStat(); renderGenAll();
 }
